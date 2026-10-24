@@ -1,0 +1,2 @@
+# Keep text files consistent with Prettier and generated notices on every platform.
+* text=auto eol=lf

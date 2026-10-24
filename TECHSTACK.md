@@ -58,6 +58,8 @@ See ARCHITECTURE.md for the detailed responsibility split, business model contra
 - Pin the pnpm version through the package manager declaration in the frontend package manifest.
 - Record Node.js and Rust toolchain versions in repository configuration when scaffolding.
 - Commit the pnpm and Cargo lockfiles. Use frozen frontend lockfile installation and locked Cargo builds in CI.
+- Git attributes enforce LF checkouts for detected text files on every platform,
+  keeping Prettier checks and generated notices independent of `core.autocrlf`.
 - Upgrade dependencies deliberately; do not rely on floating latest versions for reproducible builds.
 - Release versions come from matching frontend, Tauri and Cargo manifests plus the
   root crate's Cargo.lock entry. The first release is 0.0.1; later release PRs bump
@@ -104,6 +106,8 @@ The first MVP provides pnpm scripts for frontend development/builds, Tauri devel
   `cargo fetch --manifest-path src-tauri/Cargo.toml --locked` first so the
   dependency sources and their license texts are available on a clean checkout.
   `pnpm licenses:check` compares that output byte-for-byte before packaging in CI.
+  Git attributes keep the generated notices checked out with LF line endings on
+  every platform so Windows checkout conversion does not invalidate the check.
 - Dual SPDX expressions are retained as supplied by component metadata. Apache-2.0
   components include their shipped license and any shipped NOTICE file. Noto Sans
   is attributed under SIL Open Font License 1.1 with the unmodified OFL text.
