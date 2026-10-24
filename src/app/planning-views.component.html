@@ -1,0 +1,173 @@
+@if (view === 'calendar') {
+  <section class="panel">
+    <div class="section-heading">
+      <h2>Kalender · {{ heading() }}</h2>
+      <div class="actions">
+        <button (click)="mode = 'month'" [attr.aria-pressed]="mode === 'month'">Monat</button>
+        <button (click)="mode = 'week'" [attr.aria-pressed]="mode === 'week'">Woche</button>
+        <button (click)="shift(-1)" aria-label="Vorheriger Kalenderzeitraum">←</button>
+        <button (click)="shift(1)" aria-label="Nächster Kalenderzeitraum">→</button>
+        <button (click)="anchor = cycle.startDate">Zum Planungsstart</button>
+      </div>
+    </div>
+    <app-date-field label="Kalenderdatum" [(ngModel)]="anchor"></app-date-field>
+    <p>
+      Montag bis Sonntag. Uhrzeiten sind lokale Terminzeiten. Tage außerhalb des Plans sind
+      markiert.
+    </p>
+    <div class="calendar-scroll" tabindex="0" aria-label="Monats- oder Wochenkalender">
+      <div class="calendar" [class.week-calendar]="mode === 'week'">
+        <div class="calendar-weekdays">
+          @for (weekday of weekdays; track weekday) {
+            <strong class="weekday">{{ weekday }}</strong>
+          }
+        </div>
+        @for (week of weeks(); track $index) {
+          <div class="calendar-week">
+            @if (week.ribbons.length) {
+              <div class="calendar-ribbons" aria-label="Mesozyklen dieser Woche">
+                @for (ribbon of week.ribbons; track ribbon.phase.id) {
+                  <button
+                    class="calendar-phase-ribbon phase-mark"
+                    [attr.data-color]="ribbon.phase.color"
+                    [style.grid-column]="ribbon.column + ' / span ' + ribbon.span"
+                    [style.grid-row]="ribbon.lane + 1"
+                    [class.continues-before]="ribbon.continuesBefore"
+                    [class.continues-after]="ribbon.continuesAfter"
+                    [title]="
+                      ribbon.phase.name +
+                      ': ' +
+                      date(ribbon.phase.startDate) +
+                      ' – ' +
+                      date(ribbon.phase.endDate)
+                    "
+                    (click)="openPhase.emit(ribbon.phase)"
+                  >
+                    {{ ribbon.phase.name }}
+                  </button>
+                }
+              </div>
+            }
+            @for (day of week.days; track $index) {
+              <article
+                class="calendar-day"
+                [class.outside-month]="mode === 'month' && day.slice(0, 7) !== anchor.slice(0, 7)"
+                [class.outside-plan]="!inCycle(day)"
+              >
+                <h3>{{ date(day) }}</h3>
+                @if (!inCycle(day)) {
+                  <small>Außerhalb des Plans</small>
+                }
+                @for (period of periods(day); track period.id) {
+                  <p class="period-mark">
+                    {{ period.name }}<small>{{ policies[period.trainingPolicy] }}</small>
+                  </p>
+                }
+                @for (competition of competitions(day); track competition.id) {
+                  <p
+                    class="competition-mark"
+                    [class.main-competition]="competition.id === cycle.mainCompetitionId"
+                  >
+                    ◆ {{ competition.name
+                    }}<small>{{
+                      competition.id === cycle.mainCompetitionId
+                        ? 'Hauptwettkampf'
+                        : 'Priorität ' + competition.priority
+                    }}</small>
+                  </p>
+                }
+                @for (session of sessions(day); track session.id) {
+                  <button
+                    class="calendar-session phase-mark"
+                    [attr.data-color]="phase(session.mesoCycleId)?.color"
+                    (click)="openSession.emit(session)"
+                  >
+                    <strong>{{ session.startTime }} · {{ session.name }}</strong
+                    ><small
+                      >{{ session.plannedDuration }} min · {{ statuses[session.status] }}</small
+                    ><small>{{
+                      session.individuallyPlanned ? 'Inhalt geplant' : 'Noch ungeplant'
+                    }}</small>
+                    @if (session.reduced) {
+                      <small>Reduziert</small>
+                    }
+                  </button>
+                }
+              </article>
+            }
+          </div>
+        }
+      </div>
+    </div>
+    <div class="phase-legend" aria-label="Mesozyklus-Legende">
+      @for (p of cycle.mesocycles; track p.id) {
+        <button class="phase-mark" [attr.data-color]="p.color" (click)="openPhase.emit(p)">
+          {{ p.type }} · {{ p.name }}
+        </button>
+      }
+    </div>
+  </section>
+}
+@if (view === 'detail') {
+  @if (phase(phaseId); as p) {
+    @let totals = summary(cycle, p);
+    <section class="panel phase-mark" [attr.data-color]="p.color">
+      <h2>{{ p.name }} · {{ phases[p.type] }}</h2>
+      <p>{{ date(p.startDate) }} – {{ date(p.endDate) }}</p>
+      <p>
+        Umfang: {{ p.volume ?? 'offen' }} · Spezifität: {{ p.competitionSpecificity ?? 'offen' }}
+      </p>
+      <p>{{ p.description }}</p>
+      <p>
+        Technik: {{ p.technicalPriority || 'offen' }} · Athletik:
+        {{ p.physicalPriority || 'offen' }} · Mental: {{ p.mentalPriority || 'offen' }}
+      </p>
+      <p>
+        {{ totals.count }} geplante Einheiten · {{ totals.minutes }} geplante Minuten ·
+        @if (!totals.arrows.expected) {
+          Keine Pfeilplanung
+        } @else if (totals.arrows.total !== null) {
+          {{ totals.arrows.total }} geplante Pfeile
+        } @else {
+          {{ totals.arrows.partial }} Pfeile erfasst · unvollständig ({{
+            totals.arrows.recorded
+          }}/{{ totals.arrows.expected }} Einheiten vollständig)
+        }
+      </p>
+      <p>
+        Verschobene Ursprungstermine werden in den Summen ausgelassen; ausgefallene Pläne bleiben
+        enthalten.
+      </p>
+      <h3>Ferien / Sonderzeiträume</h3>
+      @for (period of totals.periods; track period.id) {
+        <p class="period-mark">
+          {{ period.name }} · {{ date(period.startDate) }} – {{ date(period.endDate) }} ·
+          {{ policies[period.trainingPolicy] }}
+        </p>
+      } @empty {
+        <p>Keine Sonderzeiträume.</p>
+      }
+      <h3>Wettkämpfe</h3>
+      @for (competition of totals.competitions; track competition.id) {
+        <p class="competition-mark">
+          {{ competition.name }} · {{ date(competition.date) }} ·
+          {{ competition.id === cycle.mainCompetitionId ? 'Hauptwettkampf' : competition.priority }}
+        </p>
+      } @empty {
+        <p>Keine Wettkämpfe.</p>
+      }
+      <h3>Trainingseinheiten</h3>
+      @for (session of totals.sessions; track session.id) {
+        <button class="detail-session" (click)="openSession.emit(session)">
+          {{ date(session.date) }} · {{ session.startTime }} · {{ session.name }} ·
+          {{ session.plannedDuration }} min · {{ statuses[session.status] }} ·
+          {{ session.individuallyPlanned ? 'Inhalt geplant' : 'Noch ungeplant' }} →
+        </button>
+      } @empty {
+        <p>Keine zugeordneten Einheiten.</p>
+      }
+    </section>
+  } @else {
+    <p class="notice">Dieser Mesozyklus ist nicht mehr vorhanden.</p>
+  }
+}

@@ -1,0 +1,65 @@
+# Dependencies and build output
+node_modules/
+dist/
+out-tsc/
+.angular/
+src-tauri/target/
+src-tauri/gen/
+coverage/
+.pnpm-store/
+
+# Local IDE state and disposable implementation plans
+.idea/
+*.iml
+.air/plans/
+*.swp
+*.swo
+*~
+
+# Operating-system metadata
+.DS_Store
+._*
+Thumbs.db
+Desktop.ini
+
+# Local configuration, credentials and signing material
+.env
+.env.*
+!.env.example
+!.env.sample
+!.env.template
+*.key
+*.pem
+*.p12
+*.pfx
+*.mobileprovision
+
+# Logs and Python adapter caches
+*.log
+__pycache__/
+*.py[cod]
+.venv/
+
+# Local SQLite workspaces and sidecar files
+*.sqlite3
+*.sqlite3-*
+*.sqlite
+*.sqlite-*
+*.db
+*.db-*
+
+# User exports saved into the application or repository working directory
+/*.ics
+/src-tauri/*.ics
+/*.csv
+/src-tauri/*.csv
+/*.pdf
+/src-tauri/*.pdf
+/ankerzug-*.json
+/src-tauri/ankerzug-*.json
+*.ankerzug.json
+*.vorlagen.json
+*.spiele.json
+
+# Isolated native exploratory sessions, logs and captured evidence
+.exploration/

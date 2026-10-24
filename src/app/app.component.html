@@ -1,0 +1,2028 @@
+<div class="app-shell">
+  <aside class="sidebar">
+    <a class="brand" href="/" aria-label="Ankerzug Startseite"
+      ><span class="brand-mark">◎</span
+      ><span>Ankerzug<small>TRAINING MIT PERSPEKTIVE</small></span></a
+    >
+    <div class="sidebar-heading">DEINE TRAININGSPLÄNE</div>
+    @for (c of planner.workspace().cycles; track c.id) {
+      <button class="cycle-link" [class.active]="selectedId() === c.id" (click)="open(c)">
+        <span>{{ c.name }}</span
+        ><small>{{ date(c.startDate) }} — {{ date(c.endDate) }}</small>
+      </button>
+    }
+    <button class="new-cycle" (click)="create()" [disabled]="!planner.ready()">
+      ＋ Makrozyklus erstellen
+    </button>
+    @if (cycle()) {
+      <div class="sidebar-heading">PLANUNG</div>
+      <nav aria-label="Makrozyklus-Navigation">
+        @for (item of nav; track item[0]) {
+          <button
+            [class.active]="tab() === item[0]"
+            (click)="tab.set(item[0]); selectedSession.set(null)"
+          >
+            {{ item[1] }}
+          </button>
+        }
+      </nav>
+    }
+    <hr class="nav-separator" />
+    <button
+      [class.active]="tab() === 'templates'"
+      (click)="tab.set('templates'); selectedSession.set(null)"
+      [disabled]="!planner.ready()"
+    >
+      Vorlagen
+    </button>
+    <button
+      [class.active]="tab() === 'games'"
+      (click)="tab.set('games'); selectedSession.set(null)"
+      [disabled]="!planner.ready()"
+    >
+      Trainingsspiele
+    </button>
+    <hr class="nav-separator" />
+    <button
+      [class.active]="tab() === 'exports'"
+      (click)="tab.set('exports'); selectedSession.set(null)"
+      [disabled]="!planner.ready()"
+    >
+      Export & Import
+    </button>
+    <button
+      [class.active]="tab() === 'planning-template'"
+      (click)="tab.set('planning-template'); selectedSession.set(null)"
+      [disabled]="!planner.ready()"
+    >
+      Einstellungen
+    </button>
+    <button
+      [class.active]="tab() === 'info'"
+      (click)="tab.set('info'); selectedSession.set(null)"
+      [disabled]="!planner.ready()"
+    >
+      Info
+    </button>
+    <div class="sidebar-bottom">
+      <span class="offline-dot"></span> Lokal. Offline. Dein Plan.<small
+        >Für den Weg bis zum Hauptwettkampf.</small
+      >
+    </div>
+  </aside>
+  <main>
+    <header class="topbar">
+      <span>BOGENSPORT <span class="muted">/</span> TRAININGSPLANUNG</span>
+      <div
+        class="save-state"
+        role="status"
+        [class.error]="planner.status() === 'failed' || planner.status() === 'invalid'"
+      >
+        <span class="status-dot" [class.saved]="planner.status() === 'saved'"></span
+        >{{ statusLabels[planner.status()] }}
+      </div>
+    </header>
+    @if (planner.error()) {
+      <div class="notice danger" role="alert">
+        {{ planner.error() }}
+        <button (click)="planner.ready() ? planner.flush() : planner.load()">
+          Erneut versuchen</button
+        ><button (click)="reload()">Gespeicherten Stand laden</button>
+      </div>
+    }
+    @if (message()) {
+      <div class="notice" role="status">
+        {{ message() }}
+        <button class="text-button" (click)="message.set('')" aria-label="Hinweis schließen">
+          ×
+        </button>
+      </div>
+    }
+    @if (tab() === 'exports') {
+      <app-exports
+        [cycle]="cycle() ?? null"
+        (imported)="open($event); tab.set('exports')"
+      ></app-exports>
+    }
+    @if (tab() === 'games') {
+      <app-games></app-games>
+    }
+    @if (tab() === 'planning-template') {
+      <section class="panel planning-template">
+        <div class="section-heading">
+          <div>
+            <div class="eyebrow">GLOBALE EINSTELLUNGEN</div>
+            <h1>Einstellungen</h1>
+            <p>Planungsvorlage und Farben gelten für neue und bestehende Makrozyklen.</p>
+          </div>
+        </div>
+        @if (planner.workspace().planningTemplate; as planning) {
+          <section class="shared-settings session-type-colors">
+            <h3>Farben der Einheitentypen</h3>
+            <div class="session-type-color-grid">
+              @for (type of sessionTypes; track type) {
+                <label>
+                  {{ sessionTypeLabels[type] }}
+                  <input
+                    type="color"
+                    [ngModel]="planner.workspace().sessionTypeColors![type]"
+                    (ngModelChange)="
+                      planner.workspace().sessionTypeColors![type] = $event; planner.changed()
+                    "
+                    [attr.aria-label]="'Farbe für ' + sessionTypeLabels[type]"
+                  />
+                </label>
+              }
+            </div>
+          </section>
+          @for (phase of planning.phases; track phase.code) {
+            <section class="phase-settings" [attr.data-role]="phase.role">
+              <header>
+                <span class="phase-settings-code">{{ phase.code }}</span>
+                <div>
+                  <h3>{{ phase.label }}</h3>
+                  <small>{{ phase.role }}</small>
+                </div>
+              </header>
+              <div class="phase-settings-group form-grid">
+                <h4>Vorschlagsprofil</h4>
+                <label
+                  >Vorgeschlagener Umfang<input
+                    type="number"
+                    min="1"
+                    max="5"
+                    [(ngModel)]="phase.profile.volume"
+                    (ngModelChange)="planner.changed()"
+                /></label>
+                <label
+                  >Vorgeschlagene Spezifität<input
+                    type="number"
+                    min="1"
+                    max="5"
+                    [(ngModel)]="phase.profile.competitionSpecificity"
+                    (ngModelChange)="planner.changed()"
+                /></label>
+              </div>
+              @if (phase.capabilities.proposal) {
+                <div class="phase-settings-group form-grid">
+                  <h4>Planvorlage</h4>
+                  <label
+                    >Gewichtung<input
+                      type="number"
+                      min="1"
+                      [(ngModel)]="phase.proposalWeight"
+                      (ngModelChange)="planner.changed()"
+                  /></label>
+                </div>
+              }
+              @if (phase.maxDays !== null) {
+                <div class="phase-settings-group form-grid">
+                  <h4>Warnparameter</h4>
+                  <label
+                    >{{ phase.code }} maximal (Tage)<input
+                      type="number"
+                      min="1"
+                      [(ngModel)]="phase.maxDays"
+                      (ngModelChange)="planner.changed()"
+                  /></label>
+                </div>
+              }
+            </section>
+          }
+          <section class="shared-settings">
+            <h3>Gemeinsame Warnparameter</h3>
+            <div class="form-grid">
+              <label
+                >Kurzer Zyklus unter (Tage)<input
+                  type="number"
+                  min="1"
+                  [(ngModel)]="planning.shortCycleDays"
+                  (ngModelChange)="planner.changed()"
+              /></label>
+              <label
+                >Nahe A-Höhepunkte bis (Tage)<input
+                  type="number"
+                  min="1"
+                  [(ngModel)]="planning.closePeakDays"
+                  (ngModelChange)="planner.changed()"
+              /></label>
+            </div>
+          </section>
+        }
+      </section>
+    }
+    @if (tab() === 'info') {
+      <section class="panel settings-info" aria-label="Anwendungsinformationen">
+        <div class="section-heading">
+          <div>
+            <div class="eyebrow">ANKERZUG</div>
+            <h1>Info</h1>
+            <p>Anwendungsinformationen, Lizenz- und Drittanbieter-Hinweise.</p>
+          </div>
+        </div>
+        <div class="application-metadata">
+          <h2>Ankerzug</h2>
+          <dl>
+            <div>
+              <dt>Version</dt>
+              <dd>{{ appVersion() }}</dd>
+            </div>
+            <div>
+              <dt>Urheber</dt>
+              <dd>Copyright Oliver Manz</dd>
+            </div>
+            <div>
+              <dt>Lizenz</dt>
+              <dd>Apache License 2.0</dd>
+            </div>
+          </dl>
+        </div>
+        <section class="legal-section">
+          <h3>Lizenz</h3>
+          <p>Ankerzug-eigene Materialien stehen unter der Apache License 2.0.</p>
+          <a [href]="projectLicenseUrl">Vollständige Projektlizenz</a>
+        </section>
+        <section class="legal-section">
+          <h3>Haftungshinweis</h3>
+          <p class="legal-notice">
+            Die Software wird, soweit rechtlich zulässig, ohne Gewährleistung bereitgestellt. Eine
+            Haftung für Schäden aus der Nutzung, Nichtverfügbarkeit oder fehlerhaften Ergebnissen
+            ist im gesetzlich zulässigen Umfang ausgeschlossen oder beschränkt.
+          </p>
+          <p class="legal-notice">
+            Trainingsplanung ersetzt keine unabhängige fachliche, medizinische oder
+            sicherheitsbezogene Beurteilung. Die Verantwortung für Auswahl, Durchführung und sichere
+            Anpassung des Trainings verbleibt bei den Nutzenden.
+          </p>
+        </section>
+        <section class="legal-section">
+          <h3>Drittanbieter-Lizenzen</h3>
+          <p>
+            Das vollständige Offline-Dokument enthält Lizenzen, Urheberhinweise und erforderliche
+            NOTICE-Dateien aller mitgelieferten Abhängigkeiten sowie der Schriftart Noto Sans. Diese
+            Bestandteile stehen unter ihren jeweils genannten Lizenzen, nicht automatisch unter der
+            Apache License 2.0.
+          </p>
+          <a [href]="thirdPartyNoticesUrl">Vollständige Drittanbieter-Hinweise</a>
+        </section>
+      </section>
+    }
+    @if (tab() === 'templates') {
+      <section class="panel">
+        <div class="section-heading">
+          <div>
+            <h2>Gute Einheiten wiederverwenden</h2>
+            <p>
+              Vorlagen gelten für alle Makrozyklen und sind frei editierbar. Geplante Einheiten
+              behalten ihre eigene Kopie.
+            </p>
+          </div>
+        </div>
+        <div class="template-grid">
+          @for (t of planner.workspace().templates; track t.id) {
+            <article class="template-card">
+              <span class="eyebrow">{{ t.defaultDuration }} MINUTEN</span>
+              <h3>{{ t.name }}</h3>
+              <p>{{ t.contents.length }} Inhaltsblöcke</p>
+              <div class="actions">
+                <button (click)="selectedTemplate.set(t)">Bearbeiten</button
+                ><button (click)="duplicateTemplate(t)">Kopieren</button
+                ><button class="text-button danger-button" (click)="deleteTemplate(t)">
+                  Löschen
+                </button>
+              </div>
+            </article>
+          }
+        </div>
+        @if (selectedTemplate(); as t) {
+          <div class="sub-panel">
+            <div class="form-grid">
+              <label
+                >Vorlagentyp<select [(ngModel)]="t.sessionType" (ngModelChange)="planner.changed()">
+                  @for (type of sessionTypes; track type) {
+                    <option [value]="type">{{ sessionTypeLabels[type] }}</option>
+                  }
+                </select></label
+              >
+              <label
+                >Vorlagenumfang<input
+                  type="number"
+                  min="1"
+                  max="5"
+                  [(ngModel)]="t.volume"
+                  (ngModelChange)="planner.changed()" /></label
+              ><label
+                >Vorlagenintensität<input
+                  type="number"
+                  min="1"
+                  max="5"
+                  [(ngModel)]="t.intensity"
+                  (ngModelChange)="planner.changed()" /></label
+              ><label
+                >Vorlagenspezifität<input
+                  type="number"
+                  min="1"
+                  max="5"
+                  [(ngModel)]="t.competitionSpecificity"
+                  (ngModelChange)="planner.changed()"
+              /></label>
+            </div>
+            <fieldset>
+              <legend>Vorlagenbereiche</legend>
+              @for (area of areas; track area) {
+                <label
+                  ><input
+                    type="checkbox"
+                    [ngModel]="t.areas.includes(area)"
+                    (ngModelChange)="planner.toggleArea(t.areas, area)"
+                  />{{ area }}</label
+                >
+              }
+            </fieldset>
+            <div class="form-grid">
+              <label>Name<input [(ngModel)]="t.name" (ngModelChange)="planner.changed()" /></label
+              ><label
+                >Dauer (Minuten)<input
+                  type="number"
+                  min="1"
+                  [(ngModel)]="t.defaultDuration"
+                  (ngModelChange)="planner.changed()" /></label
+              ><label class="wide"
+                >Beschreibung<input [(ngModel)]="t.description" (ngModelChange)="planner.changed()"
+              /></label>
+            </div>
+            @for (b of t.contents; track b.id; let i = $index) {
+              <div class="sub-panel form-grid">
+                <p class="wide">Start {{ offset(b.startOffsetMinutes) }}</p>
+                <label
+                  >Dauer<input
+                    type="number"
+                    min="1"
+                    [(ngModel)]="b.durationMinutes"
+                    (ngModelChange)="planner.changed()" /></label
+                ><label class="wide"
+                  >Ziele<textarea
+                    [(ngModel)]="b.goals"
+                    maxlength="300"
+                    (ngModelChange)="planner.changed()"
+                  ></textarea></label
+                ><label class="wide"
+                  >Inhalte<textarea
+                    [(ngModel)]="b.content"
+                    rows="8"
+                    (ngModelChange)="planner.changed()"
+                  ></textarea></label
+                ><label
+                  >Material<input
+                    [(ngModel)]="b.material"
+                    (ngModelChange)="planner.changed()" /></label
+                ><label
+                  >Typ<select [(ngModel)]="b.category" (ngModelChange)="changeBlockType(b)">
+                    <option value="">Kein Typ</option>
+                    @for (category of categories; track category) {
+                      <option>{{ category }}</option>
+                    }
+                  </select></label
+                >
+
+                @if (b.category === 'Spiel') {
+                  <label class="wide"
+                    >Spiel (optional)<select
+                      [(ngModel)]="b.gameId"
+                      (ngModelChange)="planner.changed()"
+                    >
+                      <option [ngValue]="null">Kein Spiel ausgewählt</option>
+                      @for (game of planner.workspace().games ?? []; track game.id) {
+                        <option [ngValue]="game.id">
+                          {{ game.name }} ·
+                          {{ gameForms(game) }}
+                        </option>
+                      }
+                    </select></label
+                  >
+                }
+                <fieldset class="wide">
+                  <legend>Bereiche des Vorlagenblocks</legend>
+                  @for (area of areas; track area) {
+                    <label
+                      ><input
+                        type="checkbox"
+                        [ngModel]="b.areas.includes(area)"
+                        (ngModelChange)="planner.toggleArea(b.areas, area)"
+                      />{{ area }}</label
+                    >
+                  }
+                </fieldset>
+
+                <div class="actions">
+                  <button
+                    (click)="move(t.contents, i, -1)"
+                    [disabled]="i === 0"
+                    aria-label="Vorlageninhalt nach oben"
+                  >
+                    ↑</button
+                  ><button
+                    (click)="move(t.contents, i, 1)"
+                    [disabled]="i === t.contents.length - 1"
+                    aria-label="Vorlageninhalt nach unten"
+                  >
+                    ↓</button
+                  ><button class="text-button danger-button" (click)="removeTemplateContent(t, i)">
+                    Entfernen
+                  </button>
+                </div>
+              </div>
+            }
+            <div class="actions">
+              <button (click)="addTemplateContent(t)">＋ Inhalt</button
+              ><button (click)="selectedTemplate.set(null)">Editor schließen</button>
+            </div>
+          </div>
+        }
+      </section>
+    }
+    @if (
+      tab() !== 'templates' &&
+        tab() !== 'games' &&
+        tab() !== 'planning-template' &&
+        tab() !== 'info' &&
+        edit();
+      as c
+    ) {
+      <div class="page-heading">
+        <div>
+          <div class="eyebrow">{{ draft() ? 'NEUER TRAININGSPLAN' : 'MAKROZYKLUS' }}</div>
+          <h1>{{ c.name || 'Dein nächstes Ziel.' }}</h1>
+          <p>
+            {{ date(c.startDate) }} <span class="muted">→</span> {{ date(c.endDate) }} ·
+            {{ days(c) }} Tage Planung
+          </p>
+        </div>
+        <span class="discipline-pill">{{ c.discipline || 'Bogensport' }}</span>
+      </div>
+      @if (tab() === 'overview' && !selectedSession()) {
+        <div class="stats-grid">
+          <div class="stat">
+            <span>PLANUNGSZEITRAUM</span><strong>{{ days(c) }} <small>Tage</small></strong>
+          </div>
+          <div class="stat">
+            <span>TRAININGSPHASEN</span
+            ><strong>{{ c.mesocycles.length }} <small>Mesozyklen</small></strong>
+          </div>
+          <div class="stat">
+            <span>TRAININGSEINHEITEN</span
+            ><strong>{{ c.sessions.length }} <small>geplant</small></strong>
+          </div>
+          <div class="stat accent-stat">
+            <span>A · HAUPTWETTKAMPF</span><strong>{{ date(mainCompetition(c).date) }}</strong
+            ><small>{{ mainCompetition(c).name || 'Zieltermin festlegen' }}</small>
+          </div>
+        </div>
+        <section class="panel">
+          <div class="section-heading">
+            <div>
+              <h2>Die Grundlage deines Plans</h2>
+              <p>Ein klares Ziel macht aus einzelnen Terminen einen Trainingsweg.</p>
+            </div>
+          </div>
+          <div class="form-grid">
+            <label class="wide"
+              >Name des Makrozyklus *<input
+                [(ngModel)]="c.name"
+                (ngModelChange)="changed()"
+                placeholder="z. B. Hallensaison 2026"
+                required
+            /></label>
+            <app-date-field
+              label="Trainingsstart *"
+              [(ngModel)]="c.startDate"
+              (ngModelChange)="changed()"
+              required
+            ></app-date-field>
+            <app-date-field
+              label="Planungsende *"
+              [(ngModel)]="c.endDate"
+              (ngModelChange)="changed()"
+              required
+            ></app-date-field>
+            <label
+              >Wettkampfdisziplin<input
+                [(ngModel)]="c.discipline"
+                (ngModelChange)="changed()"
+                list="disciplines"
+            /></label>
+
+            <label
+              >Sportler / Trainingsgruppe<input [(ngModel)]="c.athlete" (ngModelChange)="changed()"
+            /></label>
+            <label
+              >Altersklasse<input [(ngModel)]="c.ageClass" (ngModelChange)="changed()"
+            /></label>
+
+            <label
+              >Zielbeschreibung<input [(ngModel)]="c.goal" (ngModelChange)="changed()"
+            /></label>
+          </div>
+        </section>
+      }
+      @if (tab() === 'overview' && !draft() && !selectedSession()) {
+        <section class="panel competition-summary-panel">
+          <div class="section-heading">
+            <div>
+              <div class="eyebrow">WETTKÄMPFE</div>
+              <h2>Zielwettkämpfe</h2>
+            </div>
+          </div>
+          <div class="competition-summary-list" aria-label="Wettkämpfe">
+            @for (competition of c.competitions; track competition.id) {
+              <div class="competition-summary-row">
+                <span>{{ competition.name }}</span>
+                <span>Priorität {{ competition.priority }}</span>
+                <span>{{ date(competition.date) }}</span>
+                <span>{{ competition.location || 'Ort offen' }}</span>
+              </div>
+            }
+          </div>
+        </section>
+        <section class="panel mesocycle-summary-panel">
+          <div class="section-heading">
+            <div>
+              <div class="eyebrow">MESOZYKLEN</div>
+              <h2>Mesozyklus-Zusammenfassung</h2>
+            </div>
+          </div>
+          <div class="mesocycle-summary-list">
+            @for (summary of mesocycleCompositions(c); track summary.phase.id) {
+              <div class="mesocycle-summary-meta">
+                <span>{{ summary.phase.type }}</span>
+                <strong>{{ summary.phase.name }}</strong>
+                <span>Start {{ date(summary.phase.startDate) }}</span>
+                <span>Ende {{ date(summary.phase.endDate) }}</span>
+                <span>{{ summary.days }} Tage</span>
+              </div>
+              <div
+                class="mesocycle-composition"
+                [attr.aria-label]="'Einheitentypen für ' + summary.phase.name"
+              >
+                @if (summary.segments.length) {
+                  @for (segment of summary.segments; track segment.sessionType) {
+                    <span
+                      class="mesocycle-composition-segment"
+                      tabindex="0"
+                      [class.is-session-type-highlighted]="
+                        highlightedSessionType() === segment.sessionType
+                      "
+                      [class.is-session-type-muted]="
+                        highlightedSessionType() !== null &&
+                        highlightedSessionType() !== segment.sessionType
+                      "
+                      (mouseenter)="highlightedSessionType.set(segment.sessionType)"
+                      (mouseleave)="highlightedSessionType.set(null)"
+                      (focus)="highlightedSessionType.set(segment.sessionType)"
+                      (blur)="highlightedSessionType.set(null)"
+                      [style.flex-grow]="segment.share"
+                      [style.background-color]="
+                        planner.workspace().sessionTypeColors![segment.sessionType]
+                      "
+                      [title]="
+                        sessionTypeLabels[segment.sessionType] +
+                        ': ' +
+                        segment.count +
+                        ' (' +
+                        segment.share * 100 +
+                        ' %)'
+                      "
+                      [attr.aria-label]="
+                        sessionTypeLabels[segment.sessionType] +
+                        ': ' +
+                        segment.count +
+                        ', ' +
+                        segment.share * 100 +
+                        ' Prozent'
+                      "
+                    ></span>
+                  }
+                } @else {
+                  <span class="mesocycle-composition-empty">Keine geplanten Einheiten</span>
+                }
+              </div>
+            } @empty {
+              <p class="muted">Keine Mesozyklen geplant.</p>
+            }
+          </div>
+          <div class="session-type-legend" aria-label="Legende der Einheitentypfarben">
+            <h3>Legende</h3>
+            <ul>
+              @for (type of sessionTypes; track type) {
+                <li
+                  tabindex="0"
+                  [class.is-session-type-highlighted]="highlightedSessionType() === type"
+                  [class.is-session-type-muted]="
+                    highlightedSessionType() !== null && highlightedSessionType() !== type
+                  "
+                  (mouseenter)="highlightedSessionType.set(type)"
+                  (mouseleave)="highlightedSessionType.set(null)"
+                  (focus)="highlightedSessionType.set(type)"
+                  (blur)="highlightedSessionType.set(null)"
+                  [title]="sessionTypeLabels[type] + ' in den Mesozyklen hervorheben'"
+                >
+                  <span
+                    class="session-type-legend-swatch"
+                    [style.background-color]="planner.workspace().sessionTypeColors![type]"
+                    aria-hidden="true"
+                  ></span>
+                  <span>{{ sessionTypeLabels[type] }}</span>
+                </li>
+              }
+            </ul>
+          </div>
+        </section>
+      }
+      @if ((tab() === 'competitions' || draft()) && !selectedSession()) {
+        <section class="panel competition-panel">
+          <div class="section-heading">
+            <div>
+              <div class="eyebrow">DER ZIELPUNKT</div>
+              <h2>Hauptwettkampf</h2>
+            </div>
+            <span class="badge">Priorität A</span>
+          </div>
+          <div class="form-grid">
+            <label
+              >Name des Wettkampfs *<input
+                [(ngModel)]="mainCompetition(c).name"
+                (ngModelChange)="changed()"
+                placeholder="z. B. Landesmeisterschaft Halle"
+                required /></label
+            ><app-date-field
+              label="Wettkampftag *"
+              [ngModel]="mainCompetition(c).date"
+              (ngModelChange)="changeMainDate(c, $event)"
+              required
+            ></app-date-field
+            ><label
+              >Ort<input [(ngModel)]="mainCompetition(c).location" (ngModelChange)="changed()"
+            /></label>
+          </div>
+        </section>
+        <section class="panel">
+          <h2>Weitere Wettkämpfe</h2>
+          @for (competition of c.competitions; track competition.id; let i = $index) {
+            @if (competition.id !== c.mainCompetitionId) {
+              <div class="form-grid sub-panel">
+                <label
+                  >Wettkampfname<input [(ngModel)]="competition.name" (ngModelChange)="changed()"
+                /></label>
+                <app-date-field
+                  label="Wettkampfdatum"
+                  [(ngModel)]="competition.date"
+                  (ngModelChange)="changed()"
+                ></app-date-field>
+                <label
+                  >Priorität<select [(ngModel)]="competition.priority" (ngModelChange)="changed()">
+                    <option>A</option>
+                    <option>B</option>
+                    <option>C</option>
+                  </select></label
+                >
+                <label
+                  >Wettkampfort<input
+                    [(ngModel)]="competition.location"
+                    (ngModelChange)="changed()"
+                /></label>
+                <button
+                  [disabled]="competition.priority !== 'A'"
+                  (click)="setMainCompetition(c, competition.id)"
+                >
+                  Als Hauptwettkampf auswählen
+                </button>
+                <button (click)="removeCompetition(c, i)">Wettkampf entfernen</button>
+              </div>
+            }
+          }
+          <button (click)="planner.addCompetition(c)">＋ Wettkampf</button>
+          @for (note of c.migrationNotes; track $index) {
+            <p class="notice">{{ note }}</p>
+          }
+        </section>
+      }
+      @if (tab() === 'overview' && !selectedSession()) {
+        @if (draft()) {
+          <div class="actions">
+            <button class="primary" (click)="commitDraft()">Makrozyklus anlegen →</button
+            ><button (click)="draft.set(null)">Abbrechen</button>
+          </div>
+        } @else {
+          <div class="actions">
+            <button class="primary" (click)="tab.set('phases')">Mesozyklen planen →</button
+            ><button class="danger-button" (click)="deleteCycle()">Makrozyklus löschen</button>
+          </div>
+        }
+      }
+      @if (tab() === 'settings') {
+        <section class="panel">
+          <h2>Einstellungen</h2>
+          <details class="sub-panel" open>
+            <summary>Planungsvorlage & Warnparameter bearbeiten</summary>
+            <p>
+              Startvorlage: editierbare Empfehlungen, keine verbindlichen DSB-Vorgaben. Resttage
+              werden nach größten Nachkommarest verteilt; Gleichstand nach Phasenreihenfolge.
+              Gleichzeitige A-Termine teilen einen Höhepunkt.
+            </p>
+            @for (phase of c.planning.phases; track phase.code) {
+              <section class="phase-settings" [attr.data-role]="phase.role">
+                <header>
+                  <span class="phase-settings-code">{{ phase.code }}</span>
+                  <div>
+                    <h3>{{ phase.label }}</h3>
+                    <small>{{ phase.role }}</small>
+                  </div>
+                </header>
+                <div class="phase-settings-group form-grid">
+                  <h4>Vorschlagsprofil</h4>
+                  <label
+                    >Vorgeschlagener Umfang<input
+                      type="number"
+                      min="1"
+                      max="5"
+                      [(ngModel)]="phase.profile.volume"
+                      (ngModelChange)="changed()"
+                  /></label>
+                  <label
+                    >Vorgeschlagene Spezifität<input
+                      type="number"
+                      min="1"
+                      max="5"
+                      [(ngModel)]="phase.profile.competitionSpecificity"
+                      (ngModelChange)="changed()"
+                  /></label>
+                </div>
+                @if (phase.capabilities.proposal) {
+                  <div class="phase-settings-group form-grid">
+                    <h4>Planvorlage</h4>
+                    <label
+                      >Gewichtung<input
+                        type="number"
+                        min="1"
+                        [(ngModel)]="phase.proposalWeight"
+                        (ngModelChange)="changed()"
+                    /></label>
+                  </div>
+                }
+                @if (phase.maxDays !== null) {
+                  <div class="phase-settings-group form-grid">
+                    <h4>Warnparameter</h4>
+                    @if (phase.maxDays !== null) {
+                      <label
+                        >{{ phase.code }} maximal (Tage)<input
+                          type="number"
+                          min="1"
+                          [(ngModel)]="phase.maxDays"
+                          (ngModelChange)="changed()"
+                      /></label>
+                    }
+                  </div>
+                }
+              </section>
+            }
+            <section class="shared-settings">
+              <h3>Gemeinsame Warnparameter</h3>
+              <div class="form-grid">
+                <label
+                  >Kurzer Zyklus unter (Tage)<input
+                    type="number"
+                    min="1"
+                    [(ngModel)]="c.planning.shortCycleDays"
+                    (ngModelChange)="changed()"
+                /></label>
+                <label
+                  >Nahe A-Höhepunkte bis (Tage)<input
+                    type="number"
+                    min="1"
+                    [(ngModel)]="c.planning.closePeakDays"
+                    (ngModelChange)="changed()"
+                /></label>
+                <label
+                  >Harte Intensität ab (1–5)<input
+                    type="number"
+                    min="1"
+                    max="5"
+                    [(ngModel)]="c.planning.hardIntensity"
+                    (ngModelChange)="changed()"
+                /></label>
+                <label
+                  >Harte Einheiten in Folge<input
+                    type="number"
+                    min="1"
+                    [(ngModel)]="c.planning.consecutiveHardSessions"
+                    (ngModelChange)="changed()"
+                /></label>
+                <label
+                  >Wochenanstieg über (%)<input
+                    type="number"
+                    min="0"
+                    [(ngModel)]="c.planning.loadRisePercent"
+                    (ngModelChange)="changed()"
+                /></label>
+                <label
+                  >Steigende Wochen in Folge<input
+                    type="number"
+                    min="1"
+                    [(ngModel)]="c.planning.loadRiseWeeks"
+                    (ngModelChange)="changed()"
+                /></label>
+                <label
+                  >Athletik/Erholung Rückblick (Tage)<input
+                    type="number"
+                    min="1"
+                    [(ngModel)]="c.planning.recoveryLookbackDays"
+                    (ngModelChange)="changed()"
+                /></label>
+                <label
+                  >Lange Saison ab (Tage)<input
+                    type="number"
+                    min="1"
+                    [(ngModel)]="c.planning.longSeasonDays"
+                    (ngModelChange)="changed()"
+                /></label>
+              </div>
+            </section>
+          </details>
+        </section>
+      }
+      @if (tab() === 'calendar') {
+        <app-planning-views
+          [hidden]="!!selectedSession()"
+          [cycle]="c"
+          view="calendar"
+          (openSession)="openSessionEditor($event)"
+          (openPhase)="openPhaseDetail($event)"
+        ></app-planning-views>
+      }
+      @if (tab() === 'phase-detail') {
+        @if (!selectedSession()) {
+          <div class="actions">
+            <button (click)="tab.set('phases')">← Zu den Mesozyklen</button>
+          </div>
+        }
+        <app-planning-views
+          [hidden]="!!selectedSession()"
+          [cycle]="c"
+          view="detail"
+          [phaseId]="selectedPhaseId()"
+          (openSession)="openSessionEditor($event)"
+        ></app-planning-views>
+      }
+      @if (tab() === 'phases') {
+        <section class="panel">
+          <div class="section-heading">
+            <div>
+              <h2>Dein Weg zum Wettkampf</h2>
+              <p>Vorschläge frei bearbeiten. Umfang und Spezifität bleiben unabhängig.</p>
+            </div>
+            <div class="actions">
+              <button (click)="addPhase()">＋ Manuell anlegen</button
+              ><button class="primary" (click)="suggest()">Phasen vorschlagen</button>
+            </div>
+          </div>
+          <button (click)="tab.set('settings')">Planungseinstellungen öffnen</button>
+          @if (proposal()) {
+            <div class="notice">
+              Vorschau · Diese Phasen sind noch nicht übernommen. Du kannst alle Angaben ändern.
+              @if (proposal(); as proposed) {
+                @for (
+                  assignment of planner.phaseAssignmentPreview(c, proposed).assignments;
+                  track assignment.session.id
+                ) {
+                  <p>
+                    {{ assignment.session.date }} {{ assignment.session.name }}:
+                    {{
+                      assignment.retained
+                        ? 'Manuelle Zuordnung bleibt erhalten'
+                        : assignment.previous + ' → ' + assignment.next
+                    }}
+                  </p>
+                }
+                @for (
+                  phase of planner.phaseAssignmentPreview(c, proposed).retained;
+                  track phase.id
+                ) {
+                  <p>Erhalten wegen manueller Zuordnung oder Ziel: {{ phase.name }}</p>
+                }
+              }
+            </div>
+          }
+          @for (m of proposal() ?? orderedPhases(c); track m.id; let i = $index) {
+            <article class="phase-card" [attr.data-color]="m.color">
+              <div class="phase-number">{{ (i + 1).toString().padStart(2, '0') }}</div>
+              <div class="phase-fields">
+                @if (!proposal()) {
+                  <button (click)="openPhaseDetail(m)">Mesozyklus-Ansicht öffnen</button>
+                }
+                <div class="form-grid">
+                  <label class="wide"
+                    >Phasenname<input
+                      [(ngModel)]="m.name"
+                      (ngModelChange)="proposal() ? null : changed()" /></label
+                  ><app-date-field
+                    label="Von"
+                    [ngModel]="timelinePhaseDate(m, 'startDate')"
+                    (ngModelChange)="phaseBoundary(m, 'startDate', $event)"
+                  ></app-date-field
+                  ><app-date-field
+                    label="Bis"
+                    [ngModel]="timelinePhaseDate(m, 'endDate')"
+                    (ngModelChange)="phaseBoundary(m, 'endDate', $event)"
+                  ></app-date-field
+                  ><label
+                    >Typ<select
+                      [(ngModel)]="m.type"
+                      (ngModelChange)="proposal() ? null : changed()"
+                    >
+                      @for (p of phaseOptions(c); track p[0]) {
+                        <option [value]="p[0]">{{ p[1] }}</option>
+                      }
+                    </select></label
+                  ><label
+                    >Farbe<select
+                      [(ngModel)]="m.color"
+                      (ngModelChange)="proposal() ? null : changed()"
+                    >
+                      @for (color of mesocycleColors; track color[0]) {
+                        <option [value]="color[0]">{{ color[1] }}</option>
+                      }
+                    </select></label
+                  ><label
+                    >Umfang (1–5)<input
+                      type="number"
+                      min="1"
+                      max="5"
+                      [(ngModel)]="m.volume"
+                      (ngModelChange)="proposal() ? null : changed()" /></label
+                  ><label
+                    >UWV-Zielwettkampf<select
+                      [(ngModel)]="m.targetCompetitionId"
+                      (ngModelChange)="proposal() ? null : changed()"
+                    >
+                      <option [ngValue]="null">Offen</option>
+                      @for (competition of c.competitions; track competition.id) {
+                        <option [ngValue]="competition.id">{{ competition.name }}</option>
+                      }
+                    </select></label
+                  ><label
+                    >Wettkampfspezifität (1–5)<input
+                      type="number"
+                      min="1"
+                      max="5"
+                      [(ngModel)]="m.competitionSpecificity"
+                      (ngModelChange)="proposal() ? null : changed()" /></label
+                  ><label class="wide"
+                    >Beschreibung / Trainingsziel<textarea
+                      rows="8"
+                      [(ngModel)]="m.description"
+                      (ngModelChange)="proposal() ? null : changed()"
+                    ></textarea></label
+                  ><label
+                    >Technische Priorität<input
+                      [(ngModel)]="m.technicalPriority"
+                      (ngModelChange)="proposal() ? null : changed()" /></label
+                  ><label
+                    >Physische Priorität<input
+                      [(ngModel)]="m.physicalPriority"
+                      (ngModelChange)="proposal() ? null : changed()" /></label
+                  ><label class="wide"
+                    >Mentale Priorität<input
+                      [(ngModel)]="m.mentalPriority"
+                      (ngModelChange)="proposal() ? null : changed()"
+                  /></label>
+                </div>
+                @if (!proposal()) {
+                  <button (click)="startTimeline(m, 'split')">Teilen</button>
+                  <button (click)="startTimeline(m, 'merge')">
+                    Mit nächster Phase zusammenführen
+                  </button>
+                  <button (click)="startTimeline(m, 'insert')">Danach einfügen</button>
+                  <button class="text-button danger-button" (click)="removePhase(m)">
+                    Phase löschen
+                  </button>
+                  @if (
+                    timelinePhaseId === m.id &&
+                    (timelineKind === 'split' || timelineKind === 'insert') &&
+                    !timeline()
+                  ) {
+                    <div class="notice">
+                      <h3>
+                        {{
+                          timelineKind === 'split'
+                            ? 'Mesozyklus teilen'
+                            : 'Mesozyklus in Lücke einfügen'
+                        }}
+                      </h3>
+                      <app-date-field
+                        [label]="
+                          timelineKind === 'split'
+                            ? 'Beginn des zweiten Teils'
+                            : 'Beginn der neuen Phase'
+                        "
+                        [(ngModel)]="timelineDate"
+                      ></app-date-field>
+                      @if (timelineKind === 'insert') {
+                        <p>
+                          Die neue Phase muss in eine Lücke vor der nächsten Phase passen. Falls
+                          nötig, zuerst die Zeitgrenzen der Nachbarphasen ändern.
+                        </p>
+                        <app-date-field
+                          label="Ende der neuen Phase"
+                          [(ngModel)]="timelineEnd"
+                        ></app-date-field>
+                      }
+                      <button (click)="prepareTimeline()">Timeline-Vorschau erstellen</button>
+                      <button (click)="cancelTimeline()">Abbrechen</button>
+                    </div>
+                  }
+                  @if (timelinePhaseId === m.id) {
+                    @if (timelineError()) {
+                      <p class="error" role="alert">{{ timelineError() }}</p>
+                    }
+                    @if (timeline(); as t) {
+                      <div class="notice">
+                        <h3>Timeline-Vorschau</h3>
+                        <p>{{ t.explanation }}</p>
+                        <p>
+                          Erst „Timeline übernehmen“ ändert den Plan. Vorlagen und Einheitsinhalte
+                          werden nicht angewendet oder ersetzt.
+                        </p>
+                        @for (phase of t.phases; track phase.id) {
+                          <p>
+                            {{ phase.name }}: {{ phase.startDate }} – {{ phase.endDate }} ·
+                            {{ phase.type }} · Umfang {{ phase.volume ?? 'offen' }}, Spezifität
+                            {{ phase.competitionSpecificity ?? 'offen' }}
+                          </p>
+                        }
+                        @for (a of t.assignments; track a.sessionId) {
+                          <label
+                            >Zuordnung für {{ timelineSession(a.sessionId) }} (bisher
+                            {{ phaseName(a.previous) }})
+                            <select [(ngModel)]="a.next">
+                              <option [ngValue]="null">Ohne Mesozyklus</option>
+                              @for (phase of t.phases; track phase.id) {
+                                <option [ngValue]="phase.id">{{ phase.name }}</option>
+                              }
+                            </select>
+                          </label>
+                        }
+                        @for (warning of timelineWarnings(); track $index) {
+                          <p class="warning">
+                            △ {{ warning }} Du kannst Planungswarnungen ignorieren.
+                          </p>
+                        }
+                        <button class="primary" (click)="applyTimeline()">
+                          Timeline übernehmen
+                        </button>
+                        <button (click)="cancelTimeline()">Vorschau verwerfen</button>
+                      </div>
+                    }
+                  }
+                }
+              </div>
+            </article>
+          } @empty {
+            <div class="empty-inline">
+              Noch keine Phasen. Lass dir einen Ausgangsplan vorschlagen.
+            </div>
+          }
+          @if (proposal()) {
+            <div class="actions">
+              <button class="primary" (click)="acceptPhases()">Vorschlag übernehmen</button
+              ><button (click)="proposal.set(null)">Verwerfen</button>
+            </div>
+          }
+        </section>
+        @for (warning of warnings(c); track $index) {
+          <p class="warning">△ {{ warning }} Du kannst diese Warnung ignorieren.</p>
+        }
+      }
+      @if (tab() === 'periods') {
+        <section class="panel">
+          <div class="section-heading">
+            <div>
+              <h2>Raum für Erholung</h2>
+              <p>Ferien und Sonderzeiträume werden in der Terminvorschau berücksichtigt.</p>
+            </div>
+            <button class="primary" (click)="addPeriod()">＋ Zeitraum</button>
+          </div>
+          @for (p of c.periods; track p.id; let i = $index) {
+            <article class="sub-panel">
+              <div class="form-grid">
+                <label class="wide"
+                  >Bezeichnung<input [(ngModel)]="p.name" (ngModelChange)="changed()" /></label
+                ><app-date-field
+                  label="Von"
+                  [(ngModel)]="p.startDate"
+                  (ngModelChange)="changed()"
+                ></app-date-field
+                ><app-date-field
+                  label="Bis"
+                  [(ngModel)]="p.endDate"
+                  (ngModelChange)="changed()"
+                ></app-date-field
+                ><label
+                  >Typ<select [(ngModel)]="p.type" (ngModelChange)="changed()">
+                    @for (t of periodTypes; track t[0]) {
+                      <option [value]="t[0]">{{ t[1] }}</option>
+                    }
+                  </select></label
+                ><label
+                  >Training im Zeitraum<select
+                    [(ngModel)]="p.trainingPolicy"
+                    (ngModelChange)="changed()"
+                  >
+                    @for (policy of policies; track policy[0]) {
+                      <option [value]="policy[0]">{{ policy[1] }}</option>
+                    }
+                  </select></label
+                >
+              </div>
+              @if (p.trainingPolicy === 'reduced') {
+                <label
+                  >Restdauer (%) · leer = Trainerentscheidung<input
+                    type="number"
+                    min="1"
+                    max="100"
+                    [(ngModel)]="p.durationPercent"
+                    (ngModelChange)="changed()"
+                /></label>
+                <label
+                  ><input
+                    type="checkbox"
+                    [ngModel]="p.retainedSlotIds !== null"
+                    (ngModelChange)="configureReduction(c, p, $event)"
+                  />
+                  Slots gezielt reduzieren</label
+                >
+                @if (p.retainedSlotIds !== null) {
+                  @for (slot of c.slots; track slot.id) {
+                    <label
+                      ><input
+                        type="checkbox"
+                        [ngModel]="p.retainedSlotIds.includes(slot.id)"
+                        (ngModelChange)="toggleRetainedSlot(p, slot.id)"
+                      />
+                      {{ slot.name }} {{ weekdays[slot.weekday] }}</label
+                    >
+                  }
+                }
+              }
+              <p class="muted">
+                Schulferien: Modus bewusst wählen; ohne bekanntes Jugendprofil keine automatische
+                Reduktion. Zusätzliche Lagertermine über explizite Lager-Slots.
+              </p>
+              <button class="text-button danger-button" (click)="removePeriod(i)">
+                Zeitraum entfernen
+              </button>
+            </article>
+          } @empty {
+            <div class="empty-inline">
+              Erholung gehört zum Plan. Trage hier Ferien, Urlaub oder Trainingslager ein.
+            </div>
+          }
+        </section>
+        @for (warning of warnings(c); track $index) {
+          <p class="warning">△ {{ warning }} Du kannst diese Warnung ignorieren.</p>
+        }
+      }
+      @if (tab() === 'slots') {
+        <section class="panel">
+          <div class="section-heading">
+            <div>
+              <h2>Regelmäßigkeit schafft Fortschritt</h2>
+              <p>Definiere deine wöchentlichen Termine. Prüfe die Vorschau vor dem Erzeugen.</p>
+            </div>
+            <button class="primary" (click)="addSlot()">＋ Trainingsslot</button>
+          </div>
+          @for (s of c.slots; track s.id) {
+            <article class="sub-panel">
+              <div class="form-grid">
+                <label>Bezeichnung<input [(ngModel)]="s.name" (ngModelChange)="changed()" /></label
+                ><label
+                  >Wochentag<select [(ngModel)]="s.weekday" (ngModelChange)="changed()">
+                    @for (d of weekdays; track d; let i = $index) {
+                      <option [ngValue]="i">{{ d }}</option>
+                    }
+                  </select></label
+                ><label
+                  >Startzeit<input
+                    type="time"
+                    [(ngModel)]="s.startTime"
+                    (ngModelChange)="changed()" /></label
+                ><label
+                  >Dauer (Minuten)<input
+                    type="number"
+                    min="1"
+                    step="1"
+                    [(ngModel)]="s.defaultDuration"
+                    (ngModelChange)="changed()" /></label
+                ><label class="wide"
+                  >Ort<input [(ngModel)]="s.location" (ngModelChange)="changed()" /></label
+                ><app-date-field
+                  label="Gültig ab · optional"
+                  [(ngModel)]="s.validFrom"
+                  (ngModelChange)="changed()"
+                ></app-date-field
+                ><app-date-field
+                  label="Gültig bis · optional"
+                  [(ngModel)]="s.validUntil"
+                  (ngModelChange)="changed()"
+                ></app-date-field>
+              </div>
+              <div class="actions">
+                <button class="text-button danger-button" (click)="removeSlot(s.id, false)">
+                  Nur Slot löschen</button
+                ><button class="text-button danger-button" (click)="removeSlot(s.id, true)">
+                  Auch unveränderte Einheiten löschen
+                </button>
+              </div>
+            </article>
+          } @empty {
+            <div class="empty-inline">
+              Zum Beispiel Dienstag und Donnerstag um 18 Uhr, Samstag um 10 Uhr.
+            </div>
+          }
+          <button class="primary" [disabled]="!c.slots.length" (click)="showPreview()">
+            Terminvorschau erstellen →
+          </button>
+          <button [disabled]="!c.slots.length && !c.sessions.length" (click)="showRegeneration()">
+            Regenerierung prüfen
+          </button>
+        </section>
+        @if (regeneration(); as plan) {
+          <section class="panel">
+            <h2>Regenerierungsvorschau</h2>
+            <p>
+              Trainerentscheidungen und Durchführungsdaten bleiben geschützt. Jeden Konflikt
+              ausdrücklich entscheiden. Bewusst entfernte Termine bleiben ausgeschlossen.
+            </p>
+            <div class="table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Änderung</th>
+                    <th>Bisher</th>
+                    <th>Vorschlag</th>
+                    <th>Grund / Entscheidung</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (row of plan.rows; track row.key) {
+                    <tr>
+                      <td>{{ regenerationLabels[row.kind] }}</td>
+                      <td>
+                        @if (row.before; as before) {
+                          {{ before.date }} {{ before.startTime }} ·
+                          {{ before.plannedDuration }} min<br />
+                          {{ before.name }} · {{ sessionTypeLabels[before.sessionType] }}<br />
+                          Mesozyklus: {{ phaseName(before.mesoCycleId) }}<br />
+                          Umfang/Intensität/Spezifität: {{ before.volume ?? '?' }}/{{
+                            before.intensity ?? '?'
+                          }}/{{ before.competitionSpecificity ?? '?' }} ·
+                          {{ before.contents.length }} Blöcke
+                        } @else {
+                          {{ row.key }}
+                        }
+                      </td>
+                      <td>
+                        @if (row.after; as after) {
+                          {{ after.date }} {{ after.startTime }} ·
+                          {{ after.plannedDuration }} min<br />
+                          {{ after.name }} · {{ sessionTypeLabels[after.sessionType] }}<br />
+                          Umfang/Intensität/Spezifität: {{ after.volume ?? '?' }}/{{
+                            after.intensity ?? '?'
+                          }}/{{ after.competitionSpecificity ?? '?' }} ·
+                          {{ after.contents.length }} Blöcke
+                          @if (row.canApply && row.kind !== 'unchanged') {
+                            <label
+                              >Mesozyklus für {{ after.date }}
+                              <select
+                                [(ngModel)]="after.mesoCycleId"
+                                (ngModelChange)="row.choice = 'apply'"
+                              >
+                                <option [ngValue]="null">ohne Mesozyklus</option>
+                                @for (phase of c.mesocycles; track phase.id) {
+                                  <option [ngValue]="phase.id">{{ phase.name }}</option>
+                                }
+                              </select>
+                            </label>
+                          }
+                        } @else {
+                          —
+                        }
+                      </td>
+                      <td>
+                        <p>{{ row.reason }}</p>
+                        @if (
+                          row.kind !== 'unchanged' && (row.kind !== 'excluded' || row.canApply)
+                        ) {
+                          <label
+                            >Entscheidung für {{ row.before?.date || row.after?.date || row.key }}
+                            <select [(ngModel)]="row.choice">
+                              @if (row.kind === 'conflict') {
+                                <option value="unresolved">Entscheidung erforderlich</option>
+                              }
+                              <option value="keep">
+                                {{
+                                  row.before
+                                    ? 'Bestehende Einheit behalten'
+                                    : 'Termin nicht erzeugen'
+                                }}
+                              </option>
+                              @if (row.canApply) {
+                                <option value="apply">
+                                  {{
+                                    row.kind === 'conflict'
+                                      ? 'Nur Termin und Zuordnung übernehmen'
+                                      : 'Vorschlag übernehmen'
+                                  }}
+                                </option>
+                              }
+                              @if (row.kind === 'remove') {
+                                <option value="remove">Unveränderte Einheit entfernen</option>
+                              }
+                            </select>
+                          </label>
+                        }
+                      </td>
+                    </tr>
+                  } @empty {
+                    <tr>
+                      <td colspan="4">Keine Termine.</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+            <button class="primary" (click)="regenerate()">Regenerierung übernehmen</button>
+            <button (click)="regeneration.set(null)">Abbrechen</button>
+          </section>
+        }
+        @if (preview(); as rows) {
+          <section class="panel">
+            <div class="section-heading">
+              <div>
+                <h2>Terminvorschau · {{ rows.length }} Termine</h2>
+                <p>
+                  Ferien erkannt. Auswahl überschreibbar. Bestehende und bewusst entfernte Termine
+                  werden übersprungen.
+                </p>
+              </div>
+            </div>
+            <div class="table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Erzeugen</th>
+                    <th>Datum / Tag</th>
+                    <th>Uhrzeit</th>
+                    <th>Trainingsslot / Vorschlagsprofil</th>
+                    <th>Mesozyklus</th>
+                    <th>Sonderzeitraum</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (r of rows; track r.key) {
+                    <tr [class.excluded]="!r.selected">
+                      <td>
+                        <input
+                          type="checkbox"
+                          [(ngModel)]="r.selected"
+                          [attr.aria-label]="'Termin ' + r.date + ' erzeugen'"
+                        />
+                      </td>
+                      <td>
+                        {{ date(r.date) }}<small>{{ weekday(r.date) }}</small>
+                      </td>
+                      <td>{{ r.startTime }}</td>
+                      <td>
+                        {{ r.slotName }}
+                        <label
+                          >Vorschaudauer<input type="number" min="1" [(ngModel)]="r.duration"
+                        /></label>
+                        <label
+                          >Vorschautyp<select [(ngModel)]="r.sessionType">
+                            @for (type of sessionTypes; track type) {
+                              <option [value]="type">{{ sessionTypeLabels[type] }}</option>
+                            }
+                          </select></label
+                        >
+                        <label
+                          ><input type="checkbox" [(ngModel)]="r.applyProfile" /> Profil übernehmen
+                          (Startvorlage)</label
+                        >
+                        @if (r.applyProfile) {
+                          <label
+                            >Vorschauumfang<input
+                              type="number"
+                              min="1"
+                              max="5"
+                              [(ngModel)]="r.profile.volume"
+                          /></label>
+                          <label
+                            >Vorschauintensität<input
+                              type="number"
+                              min="1"
+                              max="5"
+                              [(ngModel)]="r.profile.intensity"
+                          /></label>
+                          <label
+                            >Vorschauspezifität<input
+                              type="number"
+                              min="1"
+                              max="5"
+                              [(ngModel)]="r.profile.competitionSpecificity"
+                          /></label>
+                        }
+                      </td>
+                      <td>
+                        <select
+                          [(ngModel)]="r.mesoCycleId"
+                          [attr.aria-label]="'Mesozyklus für ' + r.date"
+                        >
+                          <option [ngValue]="null">Ohne Mesozyklus</option>
+                          @for (m of c.mesocycles; track m.id) {
+                            <option [ngValue]="m.id">{{ m.name }}</option>
+                          }
+                        </select>
+                        @if (r.ambiguous) {
+                          <small class="warning">Mehrere Phasen: bitte Zuordnung wählen.</small>
+                        }
+                      </td>
+                      <td>
+                        @for (p of r.periods; track p.id) {
+                          <span class="badge">{{ p.name }}</span>
+                        }
+                      </td>
+                      <td>
+                        {{ r.selected ? (r.reduced ? 'Reduziert' : 'Geplant') : 'Ausgeschlossen' }}
+                      </td>
+                    </tr>
+                  } @empty {
+                    <tr>
+                      <td colspan="7">Keine neuen Termine.</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+            <p class="muted">Einheitentyp kann später geändert werden.</p>
+            <div class="actions">
+              <button class="primary" [disabled]="!rows.length" (click)="generate()">
+                Auswahl erzeugen</button
+              ><button (click)="preview.set(null)">Abbrechen</button>
+            </div>
+          </section>
+        }
+      }
+      @if (contentPreview(); as preview) {
+        <section class="panel" aria-label="Inhaltsvorschau">
+          <h3>Inhaltsvorschau · {{ preview.name }}</h3>
+          <p>
+            {{ preview.projected.length }} Zieleinheiten · {{ preview.protectedCount }} geschützte
+            Einheiten bleiben erhalten.
+          </p>
+          @for (session of preview.projected; track session.id) {
+            <article class="notice">
+              <strong
+                >{{ session.name }} · {{ date(session.date) }} · {{ session.startTime }} ·
+                {{ session.plannedDuration }} min</strong
+              >
+              <p>
+                Profil: Umfang {{ session.volume ?? 'offen' }} / Intensität
+                {{ session.intensity ?? 'offen' }} / Spezifität
+                {{ session.competitionSpecificity ?? 'offen' }}
+              </p>
+              @for (block of session.contents; track block.id) {
+                <p>
+                  {{ timeAt(session.startTime, block.startOffsetMinutes) }} ·
+                  {{ block.durationMinutes }} min ·
+                  {{ block.content }}
+                </p>
+              }
+            </article>
+          }
+          <button class="primary" [disabled]="!preview.projected.length" (click)="acceptContent()">
+            Inhalte übernehmen
+          </button>
+          <button (click)="contentPreview.set(null)">Inhaltsvorschau abbrechen</button>
+        </section>
+      }
+      @if (tab() === 'sessions' || selectedSession()) {
+        @if (selectedSession(); as s) {
+          <section class="panel">
+            <div class="section-heading">
+              <div>
+                <div class="eyebrow">TRAININGSEINHEIT</div>
+                <h2>{{ weekday(s.date) }}, {{ date(s.date) }} · {{ s.startTime }}</h2>
+              </div>
+              <div class="actions">
+                <button (click)="exportSessionPdf(c, s)" [disabled]="exportingPdf()">
+                  {{ exportingPdf() ? 'PDF wird erstellt …' : 'PDF A4 Portrait' }}
+                </button>
+                <button (click)="exportSessionLandscapePdf(c, s)" [disabled]="exportingPdf()">
+                  {{ exportingPdf() ? 'PDF wird erstellt …' : 'PDF A4 Landscape' }}
+                </button>
+                <button (click)="selectedSession.set(null)">
+                  {{ tab() === 'sessions' ? '← Zur Tabelle' : '← Zur Ansicht' }}
+                </button>
+              </div>
+            </div>
+            <div class="form-grid">
+              <app-date-field
+                label="Datum"
+                [(ngModel)]="s.date"
+                (ngModelChange)="sessionChanged(s)"
+              ></app-date-field
+              ><label
+                >Uhrzeit<input
+                  type="time"
+                  [(ngModel)]="s.startTime"
+                  (ngModelChange)="sessionChanged(s)" /></label
+              ><label
+                >Dauer (Minuten)<input
+                  type="number"
+                  min="1"
+                  [(ngModel)]="s.plannedDuration"
+                  (ngModelChange)="sessionChanged(s)" /></label
+              ><label
+                >Mesozyklus<select [(ngModel)]="s.mesoCycleId" (ngModelChange)="sessionChanged(s)">
+                  <option [ngValue]="null">Ohne Mesozyklus</option>
+                  @for (m of c.mesocycles; track m.id) {
+                    <option [ngValue]="m.id">{{ m.name }}</option>
+                  }
+                </select></label
+              ><label
+                >Name der Einheit<input
+                  [(ngModel)]="s.name"
+                  (ngModelChange)="sessionChanged(s)" /></label
+              ><label class="wide"
+                >Notiz<textarea
+                  [(ngModel)]="s.notes"
+                  (ngModelChange)="sessionChanged(s)"
+                ></textarea>
+              </label>
+            </div>
+            <div class="form-grid">
+              <label
+                >Einheitentyp<select
+                  [(ngModel)]="s.sessionType"
+                  (ngModelChange)="sessionChanged(s)"
+                >
+                  @for (type of sessionTypes; track type) {
+                    <option [value]="type">{{ sessionTypeLabels[type] }}</option>
+                  }
+                </select></label
+              >
+              <label
+                >Status<select [(ngModel)]="s.status" (ngModelChange)="sessionChanged(s)">
+                  <option value="planned">Geplant</option>
+                  <option value="completed">Durchgeführt</option>
+                  <option value="cancelled">Ausgefallen</option>
+                  <option value="moved">Verschoben (Ursprung)</option>
+                </select></label
+              >
+            </div>
+            <fieldset>
+              <legend>Trainingsbereiche</legend>
+              @for (area of areas; track area) {
+                <label
+                  ><input
+                    type="checkbox"
+                    [ngModel]="s.areas.includes(area)"
+                    (ngModelChange)="planner.toggleArea(s.areas, area); sessionChanged(s)"
+                  />{{ area }}</label
+                >
+              }
+            </fieldset>
+            @if (!s.individuallyPlanned) {
+              @if (previousSession(c, s); as previous) {
+                @if (previous.contents.length) {
+                  <div class="notice">
+                    <p>
+                      Inhalte der vorherigen Trainingseinheit übernehmen: {{ previous.name }} ·
+                      {{ date(previous.date) }} · {{ previous.startTime }}
+                    </p>
+                    <button (click)="previewPrevious(s)">Vorherige Inhalte vorschauen</button>
+                  </div>
+                }
+              }
+            }
+            <h3>Inhalte deiner Einheit</h3>
+            <p class="muted">
+              Die Inhalte folgen lückenlos ab der Startzeit der Einheit. Die Startzeiten ergeben
+              sich aus der Reihenfolge und Dauer der Blöcke. Pausen kannst du als eigenen Typ
+              einfügen.
+            </p>
+            @for (b of s.contents; track b.id; let i = $index) {
+              <article class="content-block">
+                <div class="offset">
+                  <span class="offset-time" aria-label="Start">{{
+                    timeAt(s.startTime, b.startOffsetMinutes)
+                  }}</span>
+                  <span class="offset-duration">{{ b.durationMinutes }} min</span>
+                  <span class="offset-time" aria-label="Ende">{{
+                    timeAt(s.startTime, b.startOffsetMinutes + b.durationMinutes)
+                  }}</span>
+                </div>
+                <div class="form-grid">
+                  <label class="session-content-short-field"
+                    >Dauer (Minuten)<input
+                      type="number"
+                      min="1"
+                      step="1"
+                      [(ngModel)]="b.durationMinutes"
+                      (ngModelChange)="contentChanged(s)" /></label
+                  ><label class="session-content-short-field"
+                    >Typ<select [(ngModel)]="b.category" (ngModelChange)="changeBlockType(b, s)">
+                      <option value="">Kein Typ</option>
+                      @for (category of categories; track category) {
+                        <option>{{ category }}</option>
+                      }
+                    </select></label
+                  ><label class="wide"
+                    >Ziele<textarea
+                      [(ngModel)]="b.goals"
+                      maxlength="300"
+                      (ngModelChange)="contentChanged(s)"
+                    ></textarea></label
+                  ><label class="wide"
+                    >Inhalte<textarea
+                      [(ngModel)]="b.content"
+                      (ngModelChange)="contentChanged(s)"
+                      rows="8"
+                    ></textarea></label
+                  ><label
+                    >Material<textarea
+                      [(ngModel)]="b.material"
+                      rows="2"
+                      (ngModelChange)="contentChanged(s)"
+                    ></textarea></label
+                  ><label
+                    >Anmerkungen<textarea
+                      [(ngModel)]="b.notes"
+                      maxlength="400"
+                      rows="2"
+                      (ngModelChange)="contentChanged(s)"
+                    ></textarea>
+                  </label>
+
+                  @if (b.category === 'Spiel') {
+                    <label class="wide"
+                      >Spiel (optional)<select
+                        [(ngModel)]="b.gameId"
+                        (ngModelChange)="contentChanged(s)"
+                      >
+                        <option [ngValue]="null">Kein Spiel ausgewählt</option>
+                        @for (game of planner.workspace().games ?? []; track game.id) {
+                          <option [ngValue]="game.id">
+                            {{ game.name }} ·
+                            {{ gameForms(game) }}
+                          </option>
+                        }
+                      </select></label
+                    >
+                  }
+                  <div class="actions wide">
+                    <button
+                      (click)="move(s.contents, i, -1)"
+                      [disabled]="i === 0"
+                      aria-label="Inhalt nach oben"
+                    >
+                      ↑</button
+                    ><button
+                      (click)="move(s.contents, i, 1)"
+                      [disabled]="i === s.contents.length - 1"
+                      aria-label="Inhalt nach unten"
+                    >
+                      ↓</button
+                    ><button class="text-button danger-button" (click)="removeContent(s, i)">
+                      Inhalt entfernen
+                    </button>
+                  </div>
+                </div>
+              </article>
+            } @empty {
+              <div class="empty-inline">
+                Keine Inhalte. Der Aufwärmblock kann vollständig entfernt werden.
+              </div>
+            }
+            <button (click)="addContent(s)">＋ Trainingsinhalt</button>
+            @for (warning of contentWarnings(s); track $index) {
+              <p class="warning">△ {{ warning }} Du kannst diese Warnung ignorieren.</p>
+            }
+            <div class="template-save">
+              <label
+                >Als eigene Vorlage speichern<input
+                  [(ngModel)]="templateName"
+                  placeholder="Name der Vorlage" /></label
+              ><button (click)="saveTemplate(s)">Vorlage erstellen</button>
+            </div>
+            <button class="text-button danger-button" (click)="removeSession(s)">
+              Trainingseinheit löschen
+            </button>
+          </section>
+        } @else {
+          <section class="panel">
+            <div class="section-heading">
+              <div>
+                <h2>Ein Termin. Ein Trainingsziel.</h2>
+                <p>{{ c.sessions.length }} Einheiten · {{ selectedSessions.size }} ausgewählt</p>
+              </div>
+              <div class="actions">
+                <button
+                  class="danger-button"
+                  [disabled]="!selectedSessions.size"
+                  (click)="removeSelectedSessions()"
+                >
+                  Ausgewählte Einheiten löschen
+                </button>
+                <button (click)="tab.set('slots')">Termine generieren →</button>
+              </div>
+            </div>
+            <div class="template-toolbar">
+              <label
+                >Vorlage<select [(ngModel)]="templateId">
+                  <option value="">Bitte wählen</option>
+                  @for (t of planner.workspace().templates; track t.id) {
+                    <option [value]="t.id">{{ t.name }}</option>
+                  }
+                </select></label
+              ><label
+                >Ziele<select [(ngModel)]="applyScope" (ngModelChange)="targetId = ''">
+                  <option value="selected">Ausgewählte Einheiten</option>
+                  <option value="slot">Alle Einheiten eines Slots</option>
+                  <option value="mesocycle">Alle Einheiten eines Mesozyklus</option>
+                  <option value="unplanned">Ungeplante eines Mesozyklus</option>
+                </select></label
+              >
+              @if (applyScope !== 'selected') {
+                <label
+                  >Slot / Mesozyklus<select [(ngModel)]="targetId">
+                    <option value="">Bitte wählen</option>
+                    @for (
+                      target of applyScope === 'slot' ? c.slots : c.mesocycles;
+                      track target.id
+                    ) {
+                      <option [value]="target.id">{{ target.name }}</option>
+                    }
+                  </select></label
+                >
+              }
+              <label
+                >Inhalte<select [(ngModel)]="applyMode">
+                  <option value="replace">Ersetzen</option>
+                  <option value="empty">Nur leere befüllen</option>
+                  <option value="append">Anhängen</option>
+                </select></label
+              ><button class="primary" (click)="apply()">
+                Auf {{ templateTargets().length }} Einheiten anwenden
+              </button>
+            </div>
+            <p class="muted">
+              Anhängen beginnt am Ende des letzten Blocks und verlängert bei Bedarf die Dauer. „Nur
+              leere“ überspringt auch reine Aufwärmblöcke.
+            </p>
+            @if (templatePreview(); as preview) {
+              <section class="sub-panel" aria-label="Vorlagenvorschau">
+                <h3>Vorlagenvorschau · {{ preview.template.name }}</h3>
+                <p>
+                  {{
+                    preview.mode === 'replace'
+                      ? 'Bestehende Inhalte ersetzen'
+                      : preview.mode === 'append'
+                        ? 'Inhalte am Ende anhängen'
+                        : 'Nur Einheiten ohne Inhaltsblöcke befüllen'
+                  }}
+                </p>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Zieleinheit</th>
+                      <th>Inhalte vorher → nachher</th>
+                      <th>Dauer vorher → nachher</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (before of preview.targets; track before.id; let i = $index) {
+                      <tr>
+                        <td>
+                          {{ before.name }} · {{ date(before.date) }} · {{ before.startTime }}
+                        </td>
+                        <td>
+                          {{ before.contents.length }} →
+                          {{ preview.projected[i].contents.length }} Blöcke
+                        </td>
+                        <td>
+                          {{ before.plannedDuration }} →
+                          {{ preview.projected[i].plannedDuration }} min
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+                <div class="actions">
+                  <button class="primary" (click)="acceptTemplate()">Vorlage übernehmen</button
+                  ><button (click)="templatePreview.set(null)">Abbrechen</button>
+                </div>
+              </section>
+            }
+
+            <fieldset class="session-filters">
+              <legend>
+                Trainingseinheiten filtern
+                <button
+                  type="button"
+                  [attr.aria-expanded]="sessionFiltersExpanded()"
+                  aria-controls="training-session-filters"
+                  (click)="sessionFiltersExpanded.set(!sessionFiltersExpanded())"
+                >
+                  {{ sessionFiltersExpanded() ? 'Filter einklappen' : 'Filter ausklappen' }}
+                </button>
+              </legend>
+              <div id="training-session-filters" [hidden]="!sessionFiltersExpanded()">
+                <div class="form-grid">
+                  <label
+                    >Mesozyklusfilter<select [(ngModel)]="filters.phase">
+                      <option value="">Alle Mesozyklen</option>
+                      <option value="none">Ohne Mesozyklus</option>
+                      @for (phase of c.mesocycles; track phase.id) {
+                        <option [value]="phase.id">{{ phase.name }}</option>
+                      }
+                    </select></label
+                  >
+                  <label
+                    >Trainingsslotfilter<select [(ngModel)]="filters.slot">
+                      <option value="">Alle Trainingsslots</option>
+                      <option value="none">Ohne Trainingsslot</option>
+                      @for (slot of c.slots; track slot.id) {
+                        <option [value]="slot.id">
+                          {{ slot.name }} · {{ weekdays[slot.weekday] }} {{ slot.startTime }}
+                        </option>
+                      }
+                    </select></label
+                  >
+                  <app-date-field label="Filter von" [(ngModel)]="filters.from"></app-date-field>
+                  <app-date-field label="Filter bis" [(ngModel)]="filters.until"></app-date-field>
+                  <label
+                    >Statusfilter<select [(ngModel)]="filters.status">
+                      <option value="">Alle Status</option>
+                      @for (status of sessionStatuses; track status[0]) {
+                        <option [value]="status[0]">{{ status[1] }}</option>
+                      }
+                    </select></label
+                  >
+                  <label
+                    >Inhaltsplanung<select [(ngModel)]="filters.content">
+                      <option value="">Alle Einheiten</option>
+                      <option value="planned">Geplant</option>
+                      <option value="unplanned">Ungeplant</option>
+                    </select></label
+                  >
+                </div>
+                <button (click)="resetFilters()">Filter zurücksetzen</button>
+              </div>
+            </fieldset>
+            @if (filters.from && filters.until && filters.from > filters.until) {
+              <p class="notice" role="alert">Filterbeginn liegt nach dem Filterende.</p>
+            }
+            <p role="status">
+              {{ filteredSessions(c).length }} von {{ c.sessions.length }} Einheiten sichtbar
+            </p>
+            <div class="table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Auswahl</th>
+                    <th>Datum / Tag</th>
+                    <th>Name der Einheit</th>
+                    <th>Beginn</th>
+                    <th>Dauer</th>
+                    <th>Mesozyklus</th>
+                    <th>Einheitentyp</th>
+                    <th>Status</th>
+                    <th>Inhalt geplant</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (s of filteredSessions(c); track s.id) {
+                    <tr>
+                      <td>
+                        <input
+                          type="checkbox"
+                          [ngModel]="selectedSessions.has(s.id)"
+                          (ngModelChange)="toggleSession(s, $event)"
+                          [attr.aria-label]="'Einheit ' + s.date + ' auswählen'"
+                        />
+                      </td>
+                      <td>
+                        {{ date(s.date) }}<small>{{ weekday(s.date) }}</small>
+                      </td>
+                      <td>{{ s.name }}</td>
+                      <td>{{ s.startTime }}</td>
+                      <td>{{ s.plannedDuration }} min</td>
+                      <td>{{ phaseName(s.mesoCycleId) }}</td>
+                      <td>{{ sessionTypeLabels[s.sessionType] }}</td>
+                      <td>{{ sessionStatusLabels[s.status] }}</td>
+                      <td>
+                        <span class="badge" [class.unplanned]="!s.individuallyPlanned">{{
+                          s.individuallyPlanned ? 'Individuell geplant' : 'Noch ungeplant'
+                        }}</span>
+                      </td>
+                      <td>
+                        <button class="text-button" (click)="openSessionEditor(s)">Öffnen →</button>
+                      </td>
+                    </tr>
+                  } @empty {
+                    <tr>
+                      <td colspan="10" class="empty-inline">
+                        Keine passenden Einheiten. Filter anpassen oder Einheiten aus Trainingsslots
+                        generieren.
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          </section>
+        }
+      }
+      @for (warning of detailedWarnings(c); track warning.context) {
+        <p class="warning">
+          △ {{ warning.message }}
+          <button (click)="planner.acknowledgeWarning(c, warning.context)">
+            Trainerentscheidung bestätigen
+          </button>
+        </p>
+      }
+    } @else if (tab() === 'overview') {
+      <section class="welcome">
+        <div class="eyebrow">VOM ERSTEN TRAINING BIS ZUM WETTKAMPF</div>
+        <h1>Ein Ziel.<br />Ein durchdachter Plan.</h1>
+        <p>
+          Strukturiere deine Saison, plane Belastung und Erholung<br />und gib jeder
+          Trainingseinheit einen Sinn.
+        </p>
+        <button class="primary" [disabled]="!planner.ready()" (click)="create()">
+          Ersten Makrozyklus erstellen →
+        </button>
+        <div class="welcome-steps">
+          <div>
+            <span>01</span>
+            <h3>Ziel festlegen</h3>
+            <p>Trainingsstart und Hauptwettkampf bilden deinen Rahmen.</p>
+          </div>
+          <div>
+            <span>02</span>
+            <h3>Phasen gestalten</h3>
+            <p>Ein fachlicher Vorschlag, den du jederzeit bearbeiten kannst.</p>
+          </div>
+          <div>
+            <span>03</span>
+            <h3>Training planen</h3>
+            <p>Wöchentliche Termine, eigene Inhalte und wiederverwendbare Vorlagen.</p>
+          </div>
+        </div>
+      </section>
+    }
+    <footer>
+      <span>ANKERZUG <span class="muted">/</span> Deine Daten bleiben auf diesem Gerät.</span>
+      <div class="actions">
+        <button class="text-button" (click)="recover()" [disabled]="!planner.ready()">
+          Stand vor Wiederherstellung</button
+        ><button
+          class="text-button"
+          (click)="backup()"
+          [disabled]="!planner.ready() || creatingBackup()"
+          [attr.aria-busy]="creatingBackup()"
+        >
+          @if (creatingBackup()) {
+            <span class="spinner" aria-hidden="true"></span>Backup wird erstellt …
+          } @else {
+            Backup erstellen
+          }</button
+        ><label class="file-button"
+          >Backup wiederherstellen<input
+            type="file"
+            accept="application/json,.json"
+            (change)="restore($event)"
+            [disabled]="!planner.ready()"
+        /></label>
+      </div>
+    </footer>
+  </main>
+</div>
+<datalist id="disciplines">
+  <option>Halle</option>
+  <option>WA im Freien</option>
+  <option>Feld</option>
+  <option>3D</option>
+</datalist>

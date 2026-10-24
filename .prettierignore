@@ -1,0 +1,12 @@
+pnpm-lock.yaml
+Cargo.lock
+src-tauri/
+dist/
+node_modules/
+.angular/
+LICENSE
+# Governing documents retain their established Markdown layout; review links and whitespace separately.
+AGENTS.md
+ARCHITECTURE.md
+TECHSTACK.md
+requirements_archery_training_planner.md

@@ -1,0 +1,92 @@
+{
+  "version": 1,
+  "projects": {
+    "ankerzug": {
+      "projectType": "application",
+      "root": "",
+      "sourceRoot": "src",
+      "architect": {
+        "build": {
+          "builder": "@angular/build:application",
+          "options": {
+            "browser": "src/main.ts",
+            "tsConfig": "tsconfig.app.json",
+            "index": "src/index.html",
+            "styles": ["src/styles.css"],
+            "outputPath": "dist/ankerzug",
+            "externalDependencies": ["canvg", "html2canvas", "dompurify"],
+            "assets": [
+              {
+                "glob": "pdf.worker.min.mjs",
+                "input": "node_modules/pdfjs-dist/legacy/build",
+                "output": "pdfjs"
+              },
+              {
+                "glob": "LICENSE",
+                "input": "node_modules/pdfjs-dist",
+                "output": "licenses/pdfjs"
+              },
+              {
+                "glob": "OFL.txt",
+                "input": "src/app/pdf",
+                "output": "licenses/noto-sans"
+              },
+              {
+                "glob": "LICENSE",
+                "input": ".",
+                "output": "licenses/ankerzug"
+              },
+              {
+                "glob": "THIRD_PARTY_NOTICES.md",
+                "input": ".",
+                "output": "licenses"
+              }
+            ]
+          },
+          "configurations": {
+            "production": {
+              "optimization": {
+                "styles": {
+                  "inlineCritical": false
+                }
+              },
+              "budgets": [
+                {
+                  "type": "initial",
+                  "maximumWarning": "650kB",
+                  "maximumError": "1MB"
+                }
+              ],
+              "outputHashing": "all"
+            },
+            "development": {
+              "optimization": false,
+              "sourceMap": true
+            }
+          },
+          "defaultConfiguration": "production"
+        },
+        "serve": {
+          "builder": "@angular/build:dev-server",
+          "configurations": {
+            "development": {
+              "buildTarget": "ankerzug:build:development"
+            }
+          },
+          "defaultConfiguration": "development"
+        },
+        "test": {
+          "builder": "@angular/build:unit-test",
+          "options": {
+            "tsConfig": "tsconfig.spec.json",
+            "runner": "vitest",
+            "buildTarget": "ankerzug:build:development"
+          }
+        }
+      }
+    }
+  },
+  "cli": {
+    "analytics": false
+  }
+}

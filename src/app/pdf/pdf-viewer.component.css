@@ -1,0 +1,60 @@
+:host {
+  display: block;
+}
+.pdf-toolbar {
+  position: sticky;
+  top: 0;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 20px;
+  background: white;
+  border-bottom: 1px solid var(--line);
+}
+.pdf-toolbar strong {
+  flex: 1;
+  overflow-wrap: anywhere;
+}
+.pdf-pages {
+  padding: 24px;
+}
+:host ::ng-deep .pdf-page {
+  max-width: 794px;
+  margin: 0 auto 24px;
+  background: white;
+  box-shadow: 0 2px 12px #0002;
+}
+:host ::ng-deep canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+@media print {
+  @page {
+    size: auto;
+    margin: 0;
+  }
+  .pdf-toolbar,
+  p {
+    display: none;
+  }
+  .pdf-pages {
+    padding: 0;
+  }
+  :host ::ng-deep .pdf-page {
+    width: var(--page-width);
+    height: var(--page-height);
+    max-width: none;
+    margin: 0;
+    box-shadow: none;
+    break-after: page;
+    break-inside: avoid;
+  }
+  :host ::ng-deep .pdf-page:last-child {
+    break-after: auto;
+  }
+  :host ::ng-deep canvas {
+    width: var(--page-width);
+    height: var(--page-height);
+  }
+}

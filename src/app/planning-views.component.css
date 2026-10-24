@@ -1,0 +1,138 @@
+:host {
+  display: block;
+}
+:host([hidden]) {
+  display: none;
+}
+.phase-mark {
+  --phase-color: #858b91;
+  border-left: 5px solid var(--phase-color);
+}
+.phase-mark[data-color='lightGreen'] {
+  --phase-color: #a3cf7a;
+}
+.phase-mark[data-color='darkGreen'] {
+  --phase-color: #367449;
+}
+.phase-mark[data-color='blue'] {
+  --phase-color: #3978bf;
+}
+.phase-mark[data-color='orange'] {
+  --phase-color: #d98228;
+}
+.phase-mark[data-color='red'] {
+  --phase-color: #c74747;
+}
+.calendar-scroll {
+  overflow-x: auto;
+  padding-bottom: 12px;
+}
+.competition-mark {
+  background: #f9eedc;
+  color: #754419;
+  padding: 6px;
+  border-left: 4px solid #d98228;
+}
+.main-competition {
+  font-weight: 700;
+  border-left-color: #c74747;
+}
+.period-mark {
+  background: #e7edf4;
+  color: #274969;
+  padding: 6px;
+  border-left: 4px solid #3978bf;
+}
+.calendar {
+  min-width: 1050px;
+}
+.calendar-weekdays,
+.calendar-week,
+.calendar-ribbons {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(145px, 1fr));
+  gap: 6px;
+}
+.calendar-week {
+  margin-bottom: 12px;
+}
+.calendar-ribbons {
+  grid-column: 1 / -1;
+}
+.calendar-phase-ribbon {
+  min-width: 0;
+  padding: 6px 10px;
+  border: 0;
+  background: var(--phase-color);
+  color: white;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border-radius: 6px;
+}
+.calendar-phase-ribbon[data-color='grey'],
+.calendar-phase-ribbon[data-color='lightGreen'],
+.calendar-phase-ribbon[data-color='orange'] {
+  color: #14251f;
+}
+.calendar-phase-ribbon:hover {
+  background: var(--phase-color);
+  filter: brightness(0.95);
+}
+.calendar-phase-ribbon.continues-before {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+.calendar-phase-ribbon.continues-after {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+.week-calendar {
+  min-height: 300px;
+}
+.weekday {
+  padding: 8px;
+}
+.calendar-day {
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  min-height: 150px;
+}
+.calendar-day h3 {
+  font-size: 13px;
+}
+.outside-month {
+  background: #f5f6f7;
+}
+.outside-plan {
+  border-style: dashed;
+}
+.calendar-day button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  margin: 6px 0;
+  padding: 6px;
+}
+.calendar-session small,
+.calendar-day small {
+  display: block;
+}
+.phase-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+}
+.detail-session {
+  display: block;
+  margin: 8px 0;
+  text-align: left;
+}
+button:focus-visible,
+[tabindex]:focus-visible {
+  outline: 3px solid #274969;
+  outline-offset: 3px;
+}

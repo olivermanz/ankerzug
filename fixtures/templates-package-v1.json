@@ -1,0 +1,38 @@
+{
+  "kind": "ankerzug-templates",
+  "formatVersion": 1,
+  "dataVersion": 2,
+  "templates": [
+    {
+      "id": "template-fixture",
+      "name": "Technik",
+      "description": "",
+      "defaultDuration": 90,
+      "contents": [
+        {
+          "id": "template-content-fixture",
+          "startOffsetMinutes": 0,
+          "durationMinutes": 30,
+          "goals": "",
+          "content": "Technikschwerpunkt",
+          "category": "Technik",
+          "notes": "",
+          "areas": ["SCHIESSTECHNIK"],
+          "subcategory": "Technik",
+          "exerciseReference": "",
+          "plannedArrowCount": null,
+          "actualArrowCount": null,
+          "actualDuration": null,
+          "plannedLoad": null,
+          "actualLoad": null,
+          "material": ""
+        }
+      ],
+      "sessionType": "BAT",
+      "areas": [],
+      "volume": null,
+      "intensity": null,
+      "competitionSpecificity": null
+    }
+  ]
+}

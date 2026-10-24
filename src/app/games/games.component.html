@@ -1,0 +1,135 @@
+<div class="page-heading">
+  <div>
+    <div class="eyebrow">SPIELSAMMLUNG</div>
+    <h1>Trainingsspiele</h1>
+    <p>Spielideen sammeln, vorbereiten und im Training einsetzen.</p>
+  </div>
+</div>
+@if (message()) {
+  <div class="notice" role="status">{{ message() }}</div>
+}
+<section class="panel" aria-label="Spielverwaltung">
+  <div class="actions">
+    <button class="primary" (click)="create()" [disabled]="busy()">＋ Spiel anlegen</button>
+    <button (click)="openImport()" [disabled]="busy()">Spiele importieren</button>
+    <button (click)="export(allIds())" [disabled]="busy() || !allIds().length">
+      Alle Spiele exportieren
+    </button>
+  </div>
+  @if (busy()) {
+    <p role="status">Spielaktion wird ausgeführt …</p>
+  }
+  <div class="game-list">
+    @for (game of planner.workspace().games ?? []; track game.id) {
+      <button
+        class="game-item"
+        [class.selected]="selectedId() === game.id"
+        (click)="open(game)"
+        [disabled]="busy()"
+      >
+        <strong>{{ game.name }}</strong
+        ><span>{{ gameForms(game) }} · {{ game.attachments.length }} PDF-Anhänge</span>
+      </button>
+    } @empty {
+      <p>Noch keine Spiele. Lege ein Spiel an oder importiere ein Spielpaket.</p>
+    }
+  </div>
+</section>
+@if (preview(); as p) {
+  <section class="panel" aria-label="Spielimport-Vorschau">
+    <h2>Spielimport prüfen</h2>
+    <p>{{ p.games.length }} Spiele werden als unabhängige Kopien ergänzt.</p>
+    @for (game of p.games; track game.id; let i = $index) {
+      <p>
+        <strong>{{ game.name }}</strong> · {{ gameForms(game) }} ·
+        {{ game.attachments.length }} PDF-Anhänge
+        @if (p.collisions[i].sameName) {
+          <span> · Name bereits vorhanden</span>
+        }
+        @if (p.collisions[i].sameId) {
+          <span> · Kennung bereits vorhanden, neue Kennungen werden vergeben</span>
+        }
+      </p>
+    }
+    <button class="primary" (click)="acceptImport(p)" [disabled]="busy()">
+      Spiele importieren bestätigen
+    </button>
+    <button (click)="preview.set(null)" [disabled]="busy()">Import abbrechen</button>
+  </section>
+}
+@if (selected(); as game) {
+  <section class="panel" aria-label="Spielbearbeitung">
+    <h2>{{ draft() ? 'Neues Spiel' : 'Spiel bearbeiten' }}</h2>
+    <div class="form-grid">
+      <label
+        >Name<input [(ngModel)]="game.name" (ngModelChange)="changed()" [disabled]="busy()"
+      /></label>
+      <fieldset>
+        <legend>Spielformen (mindestens eine)</legend>
+        <label
+          ><input
+            type="checkbox"
+            [(ngModel)]="game.single"
+            (ngModelChange)="changed()"
+            [disabled]="busy()"
+          />Einzelspiel</label
+        >
+        <label
+          ><input
+            type="checkbox"
+            [(ngModel)]="game.team"
+            (ngModelChange)="changed()"
+            [disabled]="busy()"
+          />Teamspiel</label
+        >
+      </fieldset>
+      @for (rating of ratings; track rating[0]) {
+        <label
+          >{{ rating[1] }} (1–5)<select
+            [(ngModel)]="game[rating[0]]"
+            (ngModelChange)="changed()"
+            [disabled]="busy()"
+          >
+            @for (value of values; track value) {
+              <option [ngValue]="value">{{ value }}</option>
+            }
+          </select></label
+        >
+      }
+      <label class="wide"
+        >Beschreibung<textarea
+          [(ngModel)]="game.description"
+          (ngModelChange)="changed()"
+          rows="10"
+          [disabled]="busy()"
+        ></textarea>
+      </label>
+    </div>
+    <p class="muted">
+      1 = gering / kurz, 5 = hoch / lang. Die Dauer ist eine Einschätzung, keine Minutenangabe.
+    </p>
+    @if (draft()) {
+      <button class="primary" (click)="saveDraft()" [disabled]="busy()">Spiel speichern</button>
+      <button (click)="close()" [disabled]="busy()">Anlegen abbrechen</button>
+      <p>Speichere das Spiel, um PDF-Anhänge hinzuzufügen.</p>
+    } @else {
+      <h3>PDF-Anhänge</h3>
+      @for (attachment of game.attachments; track attachment.id; let i = $index) {
+        <div class="attachment">
+          <span>{{ attachment.filename }}</span>
+          <button (click)="openAttachment(game, i)" [disabled]="busy()">Öffnen / Drucken</button>
+          <button (click)="removeAttachment(game, i)" [disabled]="busy()">Anhang entfernen</button>
+        </div>
+      } @empty {
+        <p>Keine PDF-Anhänge.</p>
+      }
+      <button (click)="attach(game)" [disabled]="busy()">PDF-Anhänge hinzufügen</button>
+      <p class="muted">Bis 5 MiB pro PDF, 200 Seiten. PDFs werden lokal übernommen.</p>
+      <div class="actions">
+        <button (click)="pdf(game)" [disabled]="busy()">Spielanleitung als PDF</button>
+        <button (click)="export([game.id])" [disabled]="busy()">Spiel exportieren</button>
+        <button (click)="close()" [disabled]="busy()">Editor schließen</button>
+      </div>
+    }
+  </section>
+}

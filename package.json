@@ -1,0 +1,49 @@
+{
+  "name": "ankerzug",
+  "version": "0.0.1",
+  "private": true,
+  "license": "Apache-2.0",
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": "^26.0.0"
+  },
+  "scripts": {
+    "start": "ng serve --host 127.0.0.1 --port 4200",
+    "build": "ng build",
+    "test": "ng test --watch=false",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "licenses:generate": "node scripts/generate-third-party-notices.mjs",
+    "licenses:check": "node scripts/verify-third-party-notices.mjs",
+    "desktop": "tauri dev",
+    "desktop:build": "tauri build",
+    "rust:test": "cargo test --manifest-path src-tauri/Cargo.toml --locked",
+    "rust:check": "cargo clippy --manifest-path src-tauri/Cargo.toml --locked --all-targets -- -D warnings",
+    "rust:format": "cargo fmt --manifest-path src-tauri/Cargo.toml -- --check",
+    "explore": "node scripts/explore.mjs",
+    "explore:test": "node --test scripts/exploration/*.test.mjs",
+    "explore:smoke": "node scripts/exploration/smoke.mjs"
+  },
+  "dependencies": {
+    "@angular/common": "21.2.25",
+    "@angular/compiler": "21.2.25",
+    "@angular/core": "21.2.25",
+    "@angular/forms": "21.2.25",
+    "@angular/platform-browser": "21.2.25",
+    "@tauri-apps/api": "2.12.1",
+    "jspdf": "4.2.1",
+    "pdfjs-dist": "6.4.299",
+    "rxjs": "7.8.2",
+    "tslib": "2.8.1"
+  },
+  "devDependencies": {
+    "@angular/build": "21.2.25",
+    "@angular/cli": "21.2.25",
+    "@angular/compiler-cli": "21.2.25",
+    "@tauri-apps/cli": "2.12.1",
+    "jsdom": "27.4.0",
+    "prettier": "3.6.2",
+    "typescript": "5.9.3",
+    "vitest": "4.0.18"
+  }
+}

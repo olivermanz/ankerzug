@@ -1,0 +1,30 @@
+.game-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 20px;
+}
+.game-item {
+  display: flex;
+  text-align: left;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.game-item.selected {
+  border-color: var(--green);
+  background: #f0f5f1;
+}
+.game-item strong,
+.attachment span {
+  overflow-wrap: anywhere;
+}
+.attachment {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.attachment span {
+  flex: 1;
+}

@@ -1,0 +1,313 @@
+use crate::storage::{AppError, ErrorCode, Result};
+use serde::Serialize;
+use std::{
+    collections::BTreeMap,
+    io::Write,
+    path::Path,
+    sync::{
+        Mutex,
+        atomic::{AtomicU64, Ordering},
+    },
+};
+use tauri::{Manager, State, WebviewUrl, WebviewWindow, WebviewWindowBuilder, WindowEvent};
+use tauri_plugin_dialog::DialogExt;
+
+#[derive(Clone, Serialize)]
+pub struct PdfDocument {
+    filename: String,
+    bytes: Vec<u8>,
+}
+
+#[derive(Default)]
+pub struct PdfViewers(Mutex<BTreeMap<String, PdfDocument>>);
+
+#[tauri::command]
+pub fn read_pdf_viewer(window: WebviewWindow, state: State<PdfViewers>) -> Result<PdfDocument> {
+    state
+        .0
+        .lock()
+        .map_err(|_| invalid("PDF-Viewer ist nicht erreichbar."))?
+        .get(window.label())
+        .cloned()
+        .ok_or_else(|| invalid("Für dieses Fenster ist kein PDF vorhanden."))
+}
+
+#[tauri::command]
+pub fn print_pdf_viewer(window: WebviewWindow, state: State<PdfViewers>) -> Result<()> {
+    // Restrict printing to a viewer that owns an in-memory document. This avoids
+    // exposing a general native print operation to arbitrary application windows.
+    let exists = state
+        .0
+        .lock()
+        .map_err(|_| invalid("PDF-Viewer ist nicht erreichbar."))?
+        .contains_key(window.label());
+    if !exists {
+        return Err(invalid("Für dieses Fenster ist kein PDF vorhanden."));
+    }
+    window.print().map_err(|error| AppError {
+        code: ErrorCode::Storage,
+        message: format!("Druckdialog konnte nicht geöffnet werden: {error}"),
+    })
+}
+
+fn open_pdf_viewer(
+    app: &tauri::AppHandle,
+    filename: &str,
+    bytes: &[u8],
+) -> std::result::Result<(), String> {
+    static NEXT_VIEWER: AtomicU64 = AtomicU64::new(1);
+    let label = format!("pdf-viewer-{}", NEXT_VIEWER.fetch_add(1, Ordering::Relaxed));
+    let state = app.state::<PdfViewers>();
+    state.0.lock().map_err(|error| error.to_string())?.insert(
+        label.clone(),
+        PdfDocument {
+            filename: filename.into(),
+            bytes: bytes.into(),
+        },
+    );
+    let result =
+        WebviewWindowBuilder::new(app, &label, WebviewUrl::App("index.html?pdfViewer".into()))
+            .title(format!("{filename} – Ankerzug PDF-Viewer"))
+            .inner_size(960.0, 850.0)
+            .min_inner_size(480.0, 400.0)
+            .build();
+    match result {
+        Ok(window) => {
+            let handle = app.clone();
+            window.on_window_event(move |event| {
+                if matches!(event, WindowEvent::Destroyed)
+                    && let Ok(mut documents) = handle.state::<PdfViewers>().0.lock()
+                {
+                    documents.remove(&label);
+                }
+            });
+            Ok(())
+        }
+        Err(error) => {
+            if let Ok(mut documents) = state.0.lock() {
+                documents.remove(&label);
+            }
+            Err(error.to_string())
+        }
+    }
+}
+
+fn invalid(message: &str) -> AppError {
+    AppError {
+        code: ErrorCode::InvalidInput,
+        message: message.into(),
+    }
+}
+pub(crate) fn validate(filename: &str, bytes: &[u8]) -> Result<()> {
+    if filename.is_empty()
+        || filename.len() > 400
+        || !filename.ends_with(".pdf")
+        || filename
+            .chars()
+            .any(|c| c.is_control() || "<>:\"/\\|?*".contains(c))
+    {
+        return Err(invalid("Ungültiger PDF-Dateiname."));
+    }
+    if bytes.len() > 20 * 1024 * 1024
+        || !bytes.starts_with(b"%PDF-")
+        || !bytes.trim_ascii_end().ends_with(b"%%EOF")
+    {
+        return Err(invalid("Ungültiger PDF-Export (maximal 20 MB)."));
+    }
+    Ok(())
+}
+
+// Write beside the destination and replace it only after a complete, synced write.
+// A failed export must not truncate an existing trainer file.
+pub(crate) fn write_export(path: &Path, bytes: &[u8]) -> Result<()> {
+    let stamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_err(|error| AppError {
+            code: ErrorCode::Storage,
+            message: error.to_string(),
+        })?
+        .as_nanos();
+    let temporary = path.with_file_name(format!(
+        ".ankerzug-export-{}-{stamp}.tmp",
+        std::process::id()
+    ));
+    let mut file = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&temporary)?;
+    let result = (|| -> std::io::Result<()> {
+        file.write_all(bytes)?;
+        file.sync_all()?;
+        drop(file);
+        std::fs::rename(&temporary, path)
+    })();
+    if result.is_err() {
+        let _ = std::fs::remove_file(&temporary);
+    }
+    result.map_err(AppError::from)
+}
+
+#[tauri::command]
+pub async fn export_session_pdf(
+    app: tauri::AppHandle,
+    filename: String,
+    bytes: Vec<u8>,
+) -> Result<()> {
+    export_pdf(app, filename, bytes).await
+}
+
+// Shared by every PDF producer: open the generated bytes directly, without a
+// filesystem write or Save As dialog. Saving is a separate viewer action.
+pub(crate) async fn export_pdf(
+    app: tauri::AppHandle,
+    filename: String,
+    bytes: Vec<u8>,
+) -> Result<()> {
+    tauri::async_runtime::spawn_blocking(move || {
+        show_pdf(&filename, &bytes, || {
+            open_pdf_viewer(&app, &filename, &bytes)
+        })
+    })
+    .await
+    .map_err(|error| AppError {
+        code: ErrorCode::Storage,
+        message: format!("PDF-Viewer konnte nicht geöffnet werden: {error}"),
+    })?
+}
+
+fn show_pdf(
+    filename: &str,
+    bytes: &[u8],
+    open: impl FnOnce() -> std::result::Result<(), String>,
+) -> Result<()> {
+    validate(filename, bytes)?;
+    open().map_err(|error| AppError {
+        code: ErrorCode::Storage,
+        message: format!("PDF-Viewer konnte nicht geöffnet werden: {error}"),
+    })
+}
+
+#[tauri::command]
+pub async fn save_pdf_viewer(
+    app: tauri::AppHandle,
+    window: WebviewWindow,
+    state: State<'_, PdfViewers>,
+) -> Result<Option<String>> {
+    let PdfDocument { filename, bytes } = read_pdf_viewer(window, state)?;
+    validate(&filename, &bytes)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let selected = app
+            .dialog()
+            .file()
+            .set_title("PDF speichern unter")
+            .add_filter("PDF-Dokument (A4)", &["pdf"])
+            .set_file_name(&filename)
+            .blocking_save_file();
+        let path = selected
+            .map(|selected| {
+                selected.into_path().map_err(|error| AppError {
+                    code: ErrorCode::Storage,
+                    message: format!("PDF-Zieldatei ist nicht erreichbar: {error}"),
+                })
+            })
+            .transpose()?;
+        save_pdf(path.as_deref(), &bytes)
+    })
+    .await
+    .map_err(|error| AppError {
+        code: ErrorCode::Storage,
+        message: format!("PDF-Export fehlgeschlagen: {error}"),
+    })?
+}
+
+fn save_pdf(path: Option<&Path>, bytes: &[u8]) -> Result<Option<String>> {
+    let Some(path) = path else {
+        return Ok(None);
+    };
+    if !path
+        .extension()
+        .is_some_and(|extension| extension.eq_ignore_ascii_case("pdf"))
+    {
+        return Err(invalid("Bitte eine Zieldatei mit der Endung .pdf wählen."));
+    }
+    write_export(path, bytes)?;
+    Ok(Some(path.to_string_lossy().into_owned()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    const PDF: &[u8] = b"%PDF-1.3\nfixture\n%%EOF\n";
+
+    #[test]
+    fn opens_valid_bytes_directly_and_reports_viewer_errors() {
+        let mut opened = false;
+        show_pdf("Training.pdf", PDF, || {
+            opened = true;
+            Ok(())
+        })
+        .unwrap();
+        assert!(opened);
+        let error = show_pdf("Training.pdf", PDF, || Err("Window unavailable".into())).unwrap_err();
+        assert!(matches!(error.code, ErrorCode::Storage));
+        assert!(error.message.contains("Window unavailable"));
+        assert!(!error.message.contains("gespeichert"));
+        assert!(
+            show_pdf("Training.pdf", b"invalid", || panic!(
+                "Invalid PDF must not open"
+            ))
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn optional_save_preserves_cancellation_and_rejects_invalid_paths() {
+        assert!(save_pdf(None, PDF).unwrap().is_none());
+        let folder =
+            std::env::temp_dir().join(format!("ankerzug-viewer-save-{}", std::process::id()));
+        std::fs::create_dir_all(&folder).unwrap();
+        let invalid_path = folder.join("plan.txt");
+        assert!(save_pdf(Some(&invalid_path), PDF).is_err());
+        assert!(!invalid_path.exists());
+        let destination = folder.join("Grüße mit Leerzeichen.pdf");
+        assert_eq!(
+            save_pdf(Some(&destination), PDF).unwrap(),
+            Some(destination.to_string_lossy().into_owned())
+        );
+        assert_eq!(std::fs::read(&destination).unwrap(), PDF);
+        std::fs::remove_dir_all(folder).unwrap();
+    }
+
+    #[test]
+    fn validates_export_contract() {
+        assert!(validate("Ankerzug-2026-10-06-Technik.pdf", PDF).is_ok());
+        for filename in ["../plan.pdf", "C:\\plan.pdf", "plan.json", "", "bad\n.pdf"] {
+            assert!(validate(filename, PDF).is_err());
+        }
+        for bytes in [b"not a PDF".as_slice(), b"%PDF-1.3 truncated".as_slice()] {
+            assert!(validate("plan.pdf", bytes).is_err());
+        }
+        let mut oversized = vec![b' '; 20 * 1024 * 1024 + 1];
+        oversized[..5].copy_from_slice(b"%PDF-");
+        let length = oversized.len();
+        oversized[length - 5..].copy_from_slice(b"%%EOF");
+        assert!(validate("plan.pdf", &oversized).is_err());
+    }
+
+    #[test]
+    fn writes_replaces_and_preserves_destination_on_failure() {
+        let folder = std::env::temp_dir().join(format!("ankerzug-pdf-test-{}", std::process::id()));
+        std::fs::create_dir_all(&folder).unwrap();
+        let path = folder.join("plan.pdf");
+        std::fs::write(&path, b"old PDF").unwrap();
+        write_export(&path, PDF).unwrap();
+        assert_eq!(std::fs::read(&path).unwrap(), PDF);
+        // Renaming over a directory fails; the destination survives and temp is removed.
+        let directory = folder.join("existing.pdf");
+        std::fs::create_dir_all(&directory).unwrap();
+        assert!(write_export(&directory, PDF).is_err());
+        assert!(directory.is_dir());
+        assert_eq!(std::fs::read_dir(&folder).unwrap().count(), 2);
+        std::fs::remove_dir_all(folder).unwrap();
+    }
+}

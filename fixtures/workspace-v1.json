@@ -1,0 +1,107 @@
+{
+  "formatVersion": 1,
+  "workspace": {
+    "cycles": [
+      {
+        "id": "cycle-fixture",
+        "name": "Hallensaison 2026",
+        "startDate": "2026-09-28",
+        "athlete": "Trainingsgruppe",
+        "discipline": "Halle",
+        "ageClass": "",
+        "goal": "Konstante Schussroutine",
+        "defaultSessionDuration": 120,
+        "competition": {
+          "name": "Landesmeisterschaft Halle",
+          "date": "2026-12-06",
+          "priority": "A",
+          "location": "Berlin"
+        },
+        "mesocycles": [
+          {
+            "id": "phase-fixture",
+            "name": "Spezifischer Aufbau",
+            "startDate": "2026-09-28",
+            "endDate": "2026-12-06",
+            "type": "build",
+            "competitionSpecificity": 3,
+            "description": "Technik unter Belastung",
+            "technicalPriority": "",
+            "physicalPriority": "",
+            "mentalPriority": "Routine",
+            "arrowCount": 80
+          }
+        ],
+        "periods": [
+          {
+            "id": "period-fixture",
+            "name": "Schulferien",
+            "startDate": "2026-10-12",
+            "endDate": "2026-10-25",
+            "type": "school",
+            "trainingPolicy": "suspended"
+          }
+        ],
+        "slots": [
+          {
+            "id": "slot-fixture",
+            "name": "Vereinstraining",
+            "weekday": 2,
+            "startTime": "18:00",
+            "defaultDuration": 120,
+            "location": "Halle",
+            "validFrom": "",
+            "validUntil": ""
+          }
+        ],
+        "sessions": [
+          {
+            "id": "session-fixture",
+            "mesoCycleId": "phase-fixture",
+            "sourceTrainingSlotId": "slot-fixture",
+            "occurrenceKey": "slot-fixture@2026-09-29",
+            "date": "2026-09-29",
+            "startTime": "18:00",
+            "plannedDuration": 120,
+            "focus": "",
+            "notes": "",
+            "status": "planned",
+            "manuallyModified": false,
+            "individuallyPlanned": false,
+            "reduced": false,
+            "contents": [
+              {
+                "id": "content-fixture",
+                "startOffsetMinutes": 0,
+                "durationMinutes": 30,
+                "content": "Aufwärmen und Einschießen",
+                "category": "Aufwärmen",
+                "notes": ""
+              }
+            ],
+            "name": "Vereinstraining"
+          }
+        ],
+        "exclusions": ["slot-fixture@2026-10-13"]
+      }
+    ],
+    "templates": [
+      {
+        "id": "template-fixture",
+        "name": "Technik",
+        "description": "",
+        "defaultDuration": 90,
+        "contents": [
+          {
+            "id": "template-content-fixture",
+            "startOffsetMinutes": 0,
+            "durationMinutes": 30,
+            "content": "Technikschwerpunkt",
+            "category": "Technik",
+            "notes": ""
+          }
+        ]
+      }
+    ]
+  }
+}

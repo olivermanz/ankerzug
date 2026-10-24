@@ -1,0 +1,111 @@
+<label [for]="inputId"
+  >{{ label }}
+  <span class="date-control" [class.invalid]="invalid()">
+    <input
+      #textInput
+      [id]="inputId"
+      type="text"
+      [value]="text()"
+      (input)="enter($event)"
+      (blur)="blur()"
+      (keydown.escape)="open() ? close() : null"
+      [disabled]="disabled()"
+      placeholder="TT.MM.JJJJ"
+      [required]="required !== false"
+      autocomplete="off"
+      spellcheck="false"
+      [attr.aria-invalid]="invalid()"
+      [attr.aria-describedby]="invalid() ? inputId + '-error' : inputId + '-hint'"
+    />
+  </span>
+</label>
+<button
+  type="button"
+  class="calendar-toggle"
+  (click)="toggle()"
+  [disabled]="disabled()"
+  [attr.aria-label]="'Kalender öffnen: ' + label"
+  [attr.aria-expanded]="open()"
+  [attr.aria-controls]="popupId"
+  aria-haspopup="dialog"
+>
+  <svg aria-hidden="true" viewBox="0 0 24 24">
+    <rect x="3" y="5" width="18" height="16" rx="2" />
+    <path d="M7 3v4M17 3v4M3 10h18M7 14h2M12 14h2M7 17h2" />
+  </svg>
+</button>
+<span class="field-hint" [id]="inputId + '-hint'">TT.MM.JJJJ</span>
+@if (invalid()) {
+  <span class="field-error" [id]="inputId + '-error'" role="status"
+    >Bitte ein gültiges Datum eingeben, z. B. 28.09.2026.</span
+  >
+}
+@if (open()) {
+  <section
+    #calendar
+    class="calendar"
+    role="dialog"
+    [id]="popupId"
+    [attr.aria-label]="'Datum wählen: ' + label"
+    (keydown)="key($event)"
+  >
+    <div class="calendar-heading">
+      <button
+        type="button"
+        (click)="moveMonth(-1)"
+        [disabled]="!canMove(-1)"
+        aria-label="Vorheriger Monat"
+      >
+        ‹
+      </button>
+      <span aria-live="polite" [id]="popupId + '-month'">{{ monthLabel() }}</span>
+      <button
+        type="button"
+        (click)="moveMonth(1)"
+        [disabled]="!canMove(1)"
+        aria-label="Nächster Monat"
+      >
+        ›
+      </button>
+    </div>
+    <table role="grid" [attr.aria-labelledby]="popupId + '-month'">
+      <thead>
+        <tr>
+          @for (day of weekdays; track day) {
+            <th scope="col">{{ day }}</th>
+          }
+        </tr>
+      </thead>
+      <tbody>
+        @for (week of weeks(); track $index) {
+          <tr>
+            @for (date of week; track $index) {
+              <td [attr.aria-selected]="date && date === selected()">
+                @if (date) {
+                  <button
+                    type="button"
+                    [attr.data-date]="date"
+                    [attr.tabindex]="date === focused() ? 0 : -1"
+                    [class.selected]="date === selected()"
+                    [class.today]="date === today()"
+                    [attr.aria-label]="dayLabel(date)"
+                    [attr.aria-current]="date === today() ? 'date' : null"
+                    (focus)="focused.set(date)"
+                    (click)="choose(date)"
+                  >
+                    {{ +date.slice(8) }}
+                  </button>
+                }
+              </td>
+            }
+          </tr>
+        }
+      </tbody>
+    </table>
+    <div class="calendar-footer">
+      <button type="button" (click)="choose(today())">Heute</button
+      ><button type="button" (click)="clear()">Leeren</button
+      ><button type="button" (click)="close()">Schließen</button>
+    </div>
+  </section>
+}

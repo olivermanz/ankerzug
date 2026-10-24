@@ -1,0 +1,133 @@
+name: Validate and release desktop
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  version:
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify matching release versions
+        id: version
+        shell: python
+        run: |
+          import json
+          import os
+          import re
+          import tomllib
+          from pathlib import Path
+
+          frontend = json.loads(Path("package.json").read_text())["version"]
+          tauri = json.loads(Path("src-tauri/tauri.conf.json").read_text())["version"]
+          cargo = tomllib.loads(Path("src-tauri/Cargo.toml").read_text())["package"]["version"]
+          locked = next(p["version"] for p in tomllib.loads(
+              Path("src-tauri/Cargo.lock").read_text()
+          )["package"] if p["name"] == "ankerzug")
+          if len({frontend, tauri, cargo, locked}) != 1:
+              raise SystemExit("Frontend, Tauri, Cargo and Cargo.lock versions must match.")
+          if not re.fullmatch(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)", frontend):
+              raise SystemExit("Release version must be major.minor.patch without a prefix.")
+          with open(os.environ["GITHUB_OUTPUT"], "a") as output:
+              output.write(f"version={frontend}\n")
+      - name: Require an unused release tag
+        if: github.event_name == 'push'
+        env:
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          existing=$(git ls-remote --tags origin "refs/tags/v${RELEASE_VERSION}")
+          if [ -n "$existing" ]; then
+            echo "::error::Tag v${RELEASE_VERSION} already exists. Bump all version manifests before merging."
+            exit 1
+          fi
+  desktop:
+    needs: version
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            bundles: deb,rpm
+          - os: windows-latest
+            bundles: nsis
+          - os: macos-latest
+            bundles: app
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.98.1
+          components: rustfmt, clippy
+      - name: Linux desktop prerequisites
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+      - run: pnpm install --frozen-lockfile
+      - name: Fetch locked Rust dependencies for license verification
+        run: cargo fetch --manifest-path src-tauri/Cargo.toml --locked
+      - run: pnpm licenses:check
+      - run: pnpm format:check
+      - run: pnpm build
+      - run: pnpm test
+      - run: pnpm explore:test
+      - run: pnpm rust:format
+      - run: pnpm rust:test
+      - run: pnpm rust:check
+      - name: Compile and test optional native exploration infrastructure
+        run: cargo test --manifest-path src-tauri/Cargo.toml --locked --features exploration exploration::tests
+      - run: pnpm desktop:build --bundles ${{ matrix.bundles }} -- --locked
+        env:
+          APPLE_SIGNING_IDENTITY: '-'
+      - name: Archive macOS application preserving executable permissions
+        if: runner.os == 'macOS'
+        env:
+          RELEASE_VERSION: ${{ needs.version.outputs.version }}
+        run: tar -czf "src-tauri/target/release/bundle/Ankerzug_${RELEASE_VERSION}_macOS-${{ runner.arch }}.app.tar.gz" -C src-tauri/target/release/bundle/macos Ankerzug.app
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ankerzug-${{ runner.os }}
+          if-no-files-found: error
+          path: |
+            src-tauri/target/release/bundle/deb/*.deb
+            src-tauri/target/release/bundle/rpm/*.rpm
+            src-tauri/target/release/bundle/nsis/*.exe
+            src-tauri/target/release/bundle/*.app.tar.gz
+  release:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [version, desktop]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    concurrency:
+      group: desktop-release
+      cancel-in-progress: false
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: ankerzug-*
+          path: release-assets
+      - name: Publish versioned release with all platform packages
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_VERSION: ${{ needs.version.outputs.version }}
+          RELEASE_COMMIT: ${{ github.sha }}
+        run: |
+          mapfile -d '' assets < <(find release-assets -type f \( -name '*.deb' -o -name '*.rpm' -o -name '*.exe' -o -name '*.app.tar.gz' \) -print0)
+          if [ "${#assets[@]}" -ne 4 ]; then
+            echo "::error::Expected Linux DEB/RPM, Windows installer and macOS application archive."
+            exit 1
+          fi
+          gh release create "v${RELEASE_VERSION}" "${assets[@]}" \
+            --target "$RELEASE_COMMIT" \
+            --title "Ankerzug ${RELEASE_VERSION}" \
+            --generate-notes

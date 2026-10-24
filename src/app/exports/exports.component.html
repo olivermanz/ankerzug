@@ -1,0 +1,139 @@
+<section class="panel export-controls">
+  <h2>Export & Import</h2>
+  <p>
+    Ein Makrozyklus-Paket enthält den vollständigen Plan und seine benötigten Vorlagen. Ein Import
+    erstellt eine separate Kopie. Ein vollständiges Backup bleibt separat verfügbar.
+  </p>
+  <button (click)="openImport()" [disabled]="busy() || !planner.ready()">
+    Makrozyklus-Paket importieren
+  </button>
+  <h3>Trainingseinheit-Vorlagen</h3>
+  <div class="actions">
+    <button (click)="openTemplateImport()" [disabled]="busy() || !planner.ready()">
+      Vorlagen-Paket importieren
+    </button>
+    <button
+      (click)="exportTemplates()"
+      [disabled]="busy() || !planner.ready() || !planner.workspace().templates.length"
+    >
+      Alle Vorlagen exportieren
+    </button>
+  </div>
+  @for (template of planner.workspace().templates; track template.id) {
+    <div class="actions">
+      <span>{{ template.name }} · {{ template.contents.length }} Trainingsblöcke</span
+      ><button
+        (click)="exportTemplates(template.id)"
+        [disabled]="busy()"
+        [attr.aria-label]="template.name + ' exportieren'"
+      >
+        Vorlage exportieren
+      </button>
+    </div>
+  }
+  @if (templatePreview(); as p) {
+    <section class="sub-panel" aria-label="Vorlagen-Importvorschau">
+      <h3>Vorlagen-Importvorschau</h3>
+      <p>
+        {{ p.templates.length }} Vorlagen · {{ collisionCount(p) }} bestehende Kennungen
+        überschneiden sich. Importierte Vorlagen und Trainingsblöcke erhalten neue Kennungen.
+        Bestehende Vorlagen bleiben erhalten.
+      </p>
+      @for (template of p.templates; track template.id) {
+        <p>
+          {{ template.name }} · {{ template.contents.length }} Trainingsblöcke ·
+          {{ template.defaultDuration }} min
+        </p>
+      }
+      @for (game of p.games ?? []; track game.id) {
+        <p>Spiel: {{ game.name }} · {{ game.attachments.length }} PDF-Anhänge</p>
+      }
+      <button (click)="acceptTemplateImport()" [disabled]="busy()">
+        Vorlagen als separate Kopien importieren
+      </button>
+      <button (click)="templatePreview.set(null)" [disabled]="busy()">
+        Vorlagen-Import abbrechen
+      </button>
+    </section>
+  }
+  @if (cycle(); as c) {
+    <h3>{{ c.name }} exportieren</h3>
+    <div class="actions">
+      @for (format of formats; track format[0]) {
+        <button (click)="export(format[0])" [disabled]="busy()">{{ format[1] }} exportieren</button>
+      }
+      <button (click)="showPrint()" [disabled]="busy()">Druckansicht öffnen</button>
+    </div>
+    <p>
+      Markdown, CSV, PDF und die Druckansicht zeigen geplante Trainingsdaten. Kalendertermine
+      verwenden lokale Uhrzeiten ohne Zeitzonenumrechnung; Wettkämpfe sind ganztägig. Ausgefallene
+      und verschobene Ursprünge sind als abgesagt gekennzeichnet. Kalenderimport ersetzt keine
+      laufende Synchronisierung.
+    </p>
+  } @else {
+    <p>Zum Export einen Makrozyklus öffnen.</p>
+  }
+  @if (message()) {
+    <p role="status">{{ message() }}</p>
+  }
+  @if (preview(); as p) {
+    <section class="sub-panel" aria-label="Importvorschau">
+      <h3>Importvorschau: {{ p.cycle.name }}</h3>
+      <p>
+        {{ p.cycle.sessions.length }} Einheiten · {{ p.cycle.competitions.length }} Wettkämpfe ·
+        {{ p.templates.length }} Vorlagen
+      </p>
+      <p>
+        {{ collisionCount(p) }} bestehende Kennungen überschneiden sich. Alle
+        {{ p.mappings.length }} Kennungen werden neu vergeben. Bestehende Pläne und Vorlagen bleiben
+        erhalten.
+      </p>
+      @for (game of p.games ?? []; track game.id) {
+        <p>Spiel: {{ game.name }} · {{ game.attachments.length }} PDF-Anhänge</p>
+      }
+      <details>
+        <summary>Neue Kennungen anzeigen</summary>
+        <div class="mapping-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Original</th>
+                <th>Neue Kennung</th>
+                <th>Bestehend</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (mapping of p.mappings; track mapping.before) {
+                <tr>
+                  <td>{{ mapping.before }}</td>
+                  <td>{{ mapping.after }}</td>
+                  <td>{{ mapping.collision ? 'Ja' : 'Nein' }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </details>
+      <button (click)="acceptImport()" [disabled]="busy()">Als separate Kopie importieren</button>
+      <button (click)="preview.set(null)" [disabled]="busy()">Import abbrechen</button>
+    </section>
+  }
+</section>
+@if (printSections(); as sections) {
+  <div class="export-controls actions">
+    <button (click)="print()" [disabled]="busy()">Trainingsplan drucken</button
+    ><button (click)="printSections.set(null)">Druckansicht schließen</button>
+  </div>
+  <article class="print-plan" aria-label="Druckansicht Trainingsplan">
+    @for (section of sections; track $index) {
+      <section>
+        <h2>{{ section.title }}</h2>
+        @for (line of section.lines; track $index) {
+          <p>{{ line }}</p>
+        } @empty {
+          <p>Keine Einträge.</p>
+        }
+      </section>
+    }
+  </article>
+}
