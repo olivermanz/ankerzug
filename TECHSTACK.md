@@ -62,7 +62,7 @@ See ARCHITECTURE.md for the detailed responsibility split, business model contra
   keeping Prettier checks and generated notices independent of `core.autocrlf`.
 - Upgrade dependencies deliberately; do not rely on floating latest versions for reproducible builds.
 - Release versions come from matching frontend, Tauri and Cargo manifests plus the
-  root crate's Cargo.lock entry. The first release is 0.0.1; later release PRs bump
+  root crate's Cargo.lock entry. The first release is 0.1.0; later release PRs bump
   those versions explicitly. Database, backup and exchange-format versions remain
   independent.
 - GitHub Actions validates and packages pull requests and pushes to main; other
