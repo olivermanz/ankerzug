@@ -79,7 +79,7 @@ See ARCHITECTURE.md for the detailed responsibility split, business model contra
 
 ## Development and validation
 
-The first MVP provides pnpm scripts for frontend development/builds, Tauri development/packaging, formatting and tests. See AGENTS.md and README.md for commands.
+The first MVP provides pnpm scripts for frontend development/builds, Tauri development/packaging, formatting and tests. See AGENTS.md and [README_DEV.md](README_DEV.md) for commands.
 
 - Use Angular's supported testing tools for frontend behavior and business operations. Use Cargo tests for Rust CRUD operations, persistence mappers, and database integrity.
 - Format and lint Rust with rustfmt and Clippy.
