@@ -17,15 +17,12 @@ inspect the repository again before assuming an implementation or command exists
   platforms, and reproducibility policy.
 - [ARCHITECTURE.md](ARCHITECTURE.md): responsibility split, business models,
   persistence mapping, transactions, and validation strategy.
-- [requirements_archery_training_planner.md](requirements_archery_training_planner.md):
-  German functional requirements, domain vocabulary, MVP scope in section 29,
-  later features in section 30, and acceptance criteria in section 32.
-- [requirements_training_games_v1_1.md](requirements_training_games_v1_1.md):
-  German version-1.1 training-game requirements and acceptance scenarios.
 - [EXPLORATORY_TESTING.md](EXPLORATORY_TESTING.md): native test harness, repeatable
-  acceptance fixture, release gates and validation evidence. Requirements remain
-  authoritative for product behavior; complete the applicable release checks
+  acceptance fixture, release gates and validation evidence. Complete the applicable release checks
   before declaring a release accepted.
+
+The former standalone requirements documents are retained in Git history.
+Their removal does not authorize changes to product scope or compatibility.
 
 Read the relevant sections before changing behavior. Keep these documents
 consistent with implementation decisions. Record a technology decision in
@@ -78,7 +75,7 @@ TECHSTACK.md before introducing a technology outside its approved boundaries.
   session, training content, special period, and template.
 - Automate results that follow deterministically from existing data. Keep
   suggestions editable and never silently overwrite trainer decisions.
-- Follow the MVP scope and acceptance workflow when implementing features.
+- Follow the documented product scope and acceptance workflow when implementing features.
   The version-2 implementation uses VP1/VP2/WP/UWV/UEP and independent volume, intensity
   and specificity profiles; absolute session/block arrow counts are separate.
   Migrated optional mesocycle legacyArrowCount retains its original 0-100
@@ -95,8 +92,7 @@ TECHSTACK.md before introducing a technology outside its approved boundaries.
   Material planning covers shared equipment and training topics. Superseded v2
   fields remain compatibility data until a separately authorized code adaptation;
   preserve existing storage, recovery and both backup readers without data loss.
-- Keep technical documentation in English and preserve the German terminology
-  in the requirements document. Update related documents when decisions change.
+- Keep technical documentation in English and preserve German product terminology. Update related documents when decisions change.
 - Keep changes focused on the task and preserve existing staged, unstaged, and
   untracked work. Do not scaffold the application as a side effect of a
   documentation task.
@@ -121,7 +117,7 @@ Actual commands from package.json:
 - `pnpm rust:format`: rustfmt check.
 
 Strict Angular/TypeScript builds and Clippy are the MVP static checks. Native
-prerequisites are documented in TECHSTACK.md and README.md. Never use a browser
+prerequisites are documented in TECHSTACK.md and README_DEV.md. Never use a browser
 persistence substitute as evidence of desktop acceptance.
 For implementation changes:
 
@@ -130,7 +126,7 @@ For implementation changes:
 - Test Rust mappers, CRUD, constraints, migrations, and transaction rollback.
 - Verify TypeScript/Rust serialization of identifiers, dates, enums, and optional
   values.
-- Validate the section 32 acceptance workflow, including data persistence after
+- Validate the EXPLORATORY_TESTING.md acceptance workflow, including data persistence after
   an application restart. Verify native and packaged behavior on all supported
   platforms before release.
 - Run checks relevant to the change and report what was run, what failed, and any

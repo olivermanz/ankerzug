@@ -2,7 +2,7 @@
 
 ## Scope and governing decisions
 
-Ankerzug is a local desktop application built with Angular, Rust, and Tauri for Windows, macOS, and Linux. The approved technologies are defined in TECHSTACK.md; functional requirements are defined in requirements_archery_training_planner.md.
+Ankerzug is a local desktop application built with Angular, Rust, and Tauri for Windows, macOS, and Linux. The approved technologies are defined in TECHSTACK.md; product scope and compatibility contracts are documented below, with acceptance workflows in EXPLORATORY_TESTING.md. The former standalone requirements documents remain available in Git history.
 
 - Angular conducts business operations and owns domain rules.
 - Rust owns the local database and all create, read, update, and delete (CRUD) operations.
@@ -578,9 +578,8 @@ revision-checked aggregate save. Existing template defaults and session copies
 remain untouched. Stale previews fail; cancelled imports do not write; failed
 saves retain intended copies for retry. Package contents preserve all planning,
 material/free-text and compatibility fields. Storage/schema and backup readers
-remain unchanged. This extends version-1 item 18. Training games for version 1.1
-are specified in [requirements_training_games_v1_1.md](requirements_training_games_v1_1.md);
-their storage, attachment lifecycle and exchange contracts remain to be designed.
+remain unchanged. Training-game storage, attachment lifecycle and exchange
+contracts are documented in the following section.
 
 ## Version 1.1 game contracts (2026-10-07)
 

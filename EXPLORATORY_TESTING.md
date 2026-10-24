@@ -8,7 +8,7 @@ required; the agent supplies the exploration decisions.
 
 ## Start here
 
-Use the Node.js, pnpm, Rust and native desktop prerequisites in [README.md](README.md).
+Use the Node.js, pnpm, Rust and native desktop prerequisites in [README_DEV.md](README_DEV.md).
 From the repository root:
 
 ```sh
@@ -168,8 +168,6 @@ forward its port to a network or run untrusted content in the instrumented app.
 
 Start from the authoritative acceptance workflows:
 
-- [Core planning, section 32](requirements_archery_training_planner.md#32-akzeptanzkriterien).
-- [Training games, section 9](requirements_training_games_v1_1.md#9-abnahmekriterien-für-version-11).
 - [Release acceptance gates](#release-acceptance-gates).
 - [Repeatable MVP acceptance fixture](#repeatable-mvp-acceptance-fixture).
 - [Architecture and compatibility contracts](ARCHITECTURE.md).
@@ -197,11 +195,11 @@ naturally occurring behavior.
 Use this prompt with an agent that has terminal and image-reading tools:
 
 > Read AGENTS.md and EXPLORATORY_TESTING.md. Build and start the isolated native
-> application with the exploration CLI. Explore the section 32 planning workflow
+> application with the exploration CLI. Explore the repeatable MVP planning workflow
 > and then the exchange/PDF/game workflows using synthetic data. Take fresh
 > snapshots after UI changes and inspect screenshots for visual findings. Exercise
 > native dialogs using the desktop adapter where supported. Verify saved edits
-> after a real process restart. Compare behavior to the governing requirements.
+> after a real process restart. Compare behavior to the documented acceptance workflows and architecture contracts.
 > For each suspected bug, reproduce it from a known state and report expected
 > behavior, actual behavior, exact steps, severity, platform/build details and
 > evidence paths. Separate confirmed defects, usability observations and untested
@@ -250,7 +248,7 @@ These gates retain the outstanding release obligations from the removed
 implementation roadmaps. Documentation cleanup does not mark any gate passed.
 Historical implementation and validation records remain in Git history; their
 results apply only to the commit, platform and scope they actually tested.
-Requirements define behavior, and ARCHITECTURE.md defines compatibility contracts.
+The workflows below define acceptance checks, and ARCHITECTURE.md defines compatibility contracts.
 Deferred features remain requirements rather than accepted implementation claims.
 
 Version 1 covers macrocycle exchange, standalone session-template exchange,
@@ -275,7 +273,7 @@ version-1.1 scope. Product versions do not change schema or backup-format versio
 - [ ] Calendar-client imports verify stable event identifiers, cancellation and
       moved-origin handling, floating local times across DST, Unicode/line folding
       and all-day competitions without requiring an account or network.
-- [ ] Requirement section 32 and affected planning workflows pass, including the
+- [ ] Core and affected planning workflows pass, including the
       fixture below, installed offline restart, backup/restore and recovery.
 - [ ] Locked frontend/native checks and packages pass. Record tested OS versions,
       architectures, Linux distributions/package formats, distribution and signing
@@ -285,7 +283,7 @@ version-1.1 scope. Product versions do not change schema or backup-format versio
 
 ### Planning and compatibility regression
 
-Exercise the current section 32.2 scenarios in addition to the baseline fixture:
+Exercise these planning and compatibility scenarios in addition to the baseline fixture:
 
 - Preserve IDs, references, manual edits, exclusions, retained compatibility data
   and recovery records across upgrades, both backup readers, disk reopen and
@@ -312,8 +310,7 @@ Exercise the current section 32.2 scenarios in addition to the baseline fixture:
 
 ### Training games and later releases
 
-Training-game acceptance follows scenarios A-01 through A-12 in
-[requirements_training_games_v1_1.md](requirements_training_games_v1_1.md): library
+Training-game acceptance covers library
 validation, single/team flags, four ratings, PDF attachments, native open/print,
 standalone exchange, A4 instructions, optional session/template references and
 names in exported plans. Verify attachment/reference closure, atomic imports,
@@ -337,8 +334,8 @@ is allowed during the UI acceptance run.
    2026-12-06, discipline Halle.
 2. Add school holidays from 2026-10-12 through 2026-10-25 inclusive, with the
    explicit suspended (no-training) policy; do not rely on the holiday default.
-3. Preview and accept the section 31 mesocycles with the selected example
-   configuration. Move the first phase's end to 2026-10-12 and the next phase's start to 2026-10-13, leaving other phases intact.
+3. Preview the proposed mesocycles, record the selected configuration and
+   resulting phase dates, then accept them. Move the first phase's end to 2026-10-12 and the next phase's start to 2026-10-13, leaving other phases intact.
 4. Add Tuesday 18:00, Thursday 18:00, and Saturday 10:00 slots, each 120 minutes.
 5. Preview 30 occurrences. The holiday policy excludes six; manually deactivate
    2026-10-29 as well. Generate the remaining **23 sessions**.
@@ -354,8 +351,9 @@ is allowed during the UI acceptance run.
 10. Back up and restore the store; repeat the restart comparison. Exercise a
     failed autosave and failed restore without accepting partial persistence.
 
-The original section 32 workflow remains the product acceptance authority; this
-fixture gives it deterministic dates, counts, and observable results.
+This fixture provides deterministic dates, counts and observable results for
+core planning acceptance. The former standalone requirements documents remain
+available in Git history; their removal does not waive the release gates above.
 
 ## Release validation record
 
