@@ -8,7 +8,7 @@ build; the cross-platform productive-release gate remains open.
 
 ## Run locally
 
-Install Node.js 26.10.0, pnpm 10.33.0 and Rust 1.98.1 with rustfmt/Clippy. Install the native
+Install Node.js 26.13.0, pnpm 12.16.1 and Rust 1.99.1 with rustfmt/Clippy. Install the native
 [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) for your OS.
 
 ```sh

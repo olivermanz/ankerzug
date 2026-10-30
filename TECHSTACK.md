@@ -116,10 +116,10 @@ The first MVP provides pnpm scripts for frontend development/builds, Tauri devel
 
 ## MVP implementation decisions (2026-10-06)
 
-- Angular 21.2.25 (maintained stable line compatible with Node 26.10.0), TypeScript 5.9.3, RxJS 7.8.2, pnpm 10.33.0; Tauri API/CLI 2.12.1. Exact resolved Rust versions are committed in Cargo.lock. Rust toolchain baseline: 1.98.1. Repository and CI pin Node 26.10.0.
-- SQLite through rusqlite 0.40.2 with bundled SQLite; no ORM. SQLite is embedded, transactional, offline and portable across Windows/macOS/Linux. rusqlite is maintained, MIT licensed; SQLite is public domain. A versioned aggregate document preserves related planning data atomically in one SQLite transaction. This deliberately favors a small local MVP over a relational query layer; typed Rust mappers validate every read.
+- Angular framework/compiler 22.2.4 with CLI/build 22.2.5, TypeScript 6.0.3 (Angular requires >=6.0 <6.1), RxJS 7.8.2 and pnpm 12.16.1; Tauri API/CLI 2.12.4 and Rust crate 2.12.5. Exact resolved Rust versions are committed in Cargo.lock. Rust toolchain baseline: 1.99.1. Repository and CI pin Node 26.13.0 (LTS).
+- SQLite through rusqlite 0.41.1 with bundled SQLite; no ORM. SQLite is embedded, transactional, offline and portable across Windows/macOS/Linux. rusqlite is maintained, MIT licensed; SQLite is public domain. A versioned aggregate document preserves related planning data atomically in one SQLite transaction. This deliberately favors a small local MVP over a relational query layer; typed Rust mappers validate every read.
 - serde/serde_json (MIT/Apache-2.0) implement explicit serializable contracts and a versioned backup. The existing Rust-only tauri-plugin-dialog selects a trainer-chosen JSON backup destination; no frontend filesystem permission, JS dialog plugin or new dependency is added.
-- Angular CLI unit-test builder with Vitest 4 and jsdom provides isolated domain, transport and UI tests. Prettier 3 supplies frontend/document formatting, strict Angular/TypeScript compilation supplies type and template checks. These maintained MIT tools run on all three platforms. Rust uses rustfmt and Clippy. No UI library, CSS framework, state library or cloud service.
+- Angular CLI unit-test builder with Vitest 5 and jsdom 30 provides isolated domain, transport and UI tests. Prettier 3 supplies frontend/document formatting, strict Angular/TypeScript compilation supplies type and template checks. These maintained MIT tools run on all three platforms. Rust uses rustfmt and Clippy. No UI library, CSS framework, state library or cloud service.
 - CI runs frozen pnpm installs and locked Cargo validation on Linux, Windows and macOS. Native offline/restart UI acceptance remains a separate release gate; CI compilation alone does not establish that it passed.
 - Backups use a Rust-scoped native Save As dialog for a trainer-selected JSON destination. Rust validates the extension and atomically replaces the selected file only after a complete synced temporary write; cancellation creates no file. Restore accepts a user-selected JSON file, validates the entire payload and revision, and keeps the previous document in a recovery table in the same transaction. No arbitrary filesystem paths are accepted over IPC.
 
@@ -133,7 +133,7 @@ The first MVP provides pnpm scripts for frontend development/builds, Tauri devel
 - Bundle Noto Sans Regular (SIL Open Font License 1.1, license shipped alongside
   the font data) for German text and its supported Latin/Greek/Cyrillic glyphs.
   The font and PDF library run in each platform's Tauri webview.
-- Use tauri-plugin-dialog 2.7.1 (MIT/Apache-2.0, Tauri 2 compatible) only from Rust
+- Use tauri-plugin-dialog 2.8.4 (MIT/Apache-2.0, Tauri 2 compatible) only from Rust
   for an optional native Save As dialog in the PDF viewer on Windows/macOS/Linux.
   Opening a PDF accepts bytes and a suggested filename, never a filesystem path.
   Saving uses the calling viewer's validated payload and writes only the path
@@ -163,7 +163,7 @@ The first MVP provides pnpm scripts for frontend development/builds, Tauri devel
 - Use Mozilla's maintained Apache-2.0 `pdfjs-dist` 6.4.299 to render the actual
   generated PDF bytes in that window. Bundle the legacy renderer and worker
   locally for offline Windows/WebView2, macOS/WKWebView and Linux/WebKitGTK use.
-  Its Node.js development minimum is 22.13; the pinned Node 26.10.0 exceeds that requirement.
+  Its Node.js development minimum is 22.13; the pinned Node 26.13.0 exceeds that requirement.
   Load the renderer only in the viewer. See the
   [official PDF.js examples](https://mozilla.github.io/pdf.js/examples/).
 - Print the rendered A4 pages through a window-scoped Rust command that calls
@@ -215,3 +215,12 @@ byte structure, IDs and references; Angular performs full PDF usability checks.
   X11 backend. The adapter restricts input to windows owned by the isolated app
   process. Portal dialogs owned by another process and other operating systems
   require their own desktop automation or a human tester.
+
+## Dependency refresh (2026-10-30)
+
+- Keep Angular framework/compiler packages aligned at 22.2.4 and CLI/build at 22.2.5; TypeScript 7 is deliberately excluded by Angular's peer range.
+- Apply Angular's v22 migrations to retain eager component change detection and the previous extended-template diagnostic behavior.
+- pnpm-workspace.yaml explicitly allows build scripts for Angular's native watcher, esbuild, LMDB cache and msgpackr helper; core-js's informational postinstall is disabled. Unreviewed build scripts continue to fail installation.
+- Angular's Oxc WASM fallback already requires prerelease emnapi 2. Its alpha.3 pins conflict with the runtime's alpha.4 peer minimum. Scoped overrides align only that binding's core/runtime at alpha.4; verify the WASM fallback and remove the overrides when upstream fixes its pins. This is a build-time transitive compatibility exception, not a production dependency or blanket peer-check suppression.
+- Keep Tauri on version 2, with tauri-build 2.7.4, dialog 2.8.4 and optional exploration driver 1.5.1. No business-data, database, backup or exchange-format version changes are introduced by this dependency refresh.
+- CI reads Node from `.node-version`, pnpm from `package.json` and Rust from `rust-toolchain.toml`. pnpm 12 records its own package-manager resolution in a separate YAML document within pnpm-lock.yaml. Updated action releases support pnpm 12 and the current artifact upload/download pair; frozen pnpm installs, locked Cargo checks and the three-platform packaging/release gates remain required.

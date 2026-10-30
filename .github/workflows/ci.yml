@@ -10,8 +10,9 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       version: ${{ steps.version.outputs.version }}
+      rust-toolchain: ${{ steps.version.outputs.rust-toolchain }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
       - name: Verify matching release versions
         id: version
         shell: python
@@ -32,8 +33,10 @@ jobs:
               raise SystemExit("Frontend, Tauri, Cargo and Cargo.lock versions must match.")
           if not re.fullmatch(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)", frontend):
               raise SystemExit("Release version must be major.minor.patch without a prefix.")
+          toolchain = tomllib.loads(Path("rust-toolchain.toml").read_text())["toolchain"]["channel"]
           with open(os.environ["GITHUB_OUTPUT"], "a") as output:
               output.write(f"version={frontend}\n")
+              output.write(f"rust-toolchain={toolchain}\n")
       - name: Require an unused release tag
         if: github.event_name == 'push'
         env:
@@ -58,20 +61,21 @@ jobs:
             bundles: dmg
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7.0.1
+      - uses: pnpm/action-setup@v6.1.0
+      - uses: actions/setup-node@v7.1.0
         with:
           node-version-file: .node-version
           cache: pnpm
       - uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: 1.98.1
+          toolchain: ${{ needs.version.outputs.rust-toolchain }}
           components: rustfmt, clippy
       - name: Linux desktop prerequisites
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
       - run: pnpm install --frozen-lockfile
+      - run: pnpm peers check
       - name: Fetch locked Rust dependencies for license verification
         run: cargo fetch --manifest-path src-tauri/Cargo.toml --locked
       - run: pnpm licenses:check
@@ -87,7 +91,7 @@ jobs:
       - run: pnpm desktop:build --bundles ${{ matrix.bundles }} -- --locked
         env:
           APPLE_SIGNING_IDENTITY: '-'
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7.0.2
         with:
           name: ankerzug-${{ runner.os }}
           if-no-files-found: error
@@ -106,7 +110,7 @@ jobs:
       group: desktop-release
       cancel-in-progress: false
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8.0.2
         with:
           pattern: ankerzug-*
           path: release-assets

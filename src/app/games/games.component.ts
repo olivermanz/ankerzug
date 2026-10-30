@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Game } from '../models';
 import { PlannerService } from '../planner.service';
@@ -8,6 +8,7 @@ import { gameForms, GAME_RATINGS, GameImportPreview, gameErrors, newGame } from 
   standalone: true,
   imports: [FormsModule],
   templateUrl: './games.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './games.component.css',
 })
 export class GamesComponent {

@@ -1,4 +1,4 @@
-import { Component, inject, input, output, signal } from '@angular/core';
+import { Component, inject, input, output, signal, ChangeDetectionStrategy } from '@angular/core';
 import { MacroCycle } from '../models';
 import { PlannerService } from '../planner.service';
 import { ImportPreview, TemplateImportPreview } from './exchange';
@@ -8,6 +8,7 @@ import { PlanSection, planSections } from './readable';
   selector: 'app-exports',
   standalone: true,
   templateUrl: './exports.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './exports.component.css',
 })
 export class ExportsComponent {

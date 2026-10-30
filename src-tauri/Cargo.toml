@@ -3,23 +3,23 @@ name = "ankerzug"
 version = "0.1.1"
 license = "Apache-2.0"
 edition = "2024"
-rust-version = "1.98"
+rust-version = "1.99"
 
 [lib]
 name = "ankerzug_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
-tauri-build = { version = "=2.7.1", features = [] }
+tauri-build = { version = "=2.7.4", features = [] }
 
 [features]
 default = []
 exploration = ["dep:tauri-plugin-wdio-webdriver"]
 
 [dependencies]
-tauri = { version = "=2.12.1", features = [] }
+tauri = { version = "=2.12.5", features = [] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-rusqlite = { version = "=0.40.2", features = ["bundled"] }
-tauri-plugin-dialog = "=2.7.1"
-tauri-plugin-wdio-webdriver = { version = "=1.5.0", optional = true }
+rusqlite = { version = "=0.41.1", features = ["bundled"] }
+tauri-plugin-dialog = "=2.8.4"
+tauri-plugin-wdio-webdriver = { version = "=1.5.1", optional = true }

@@ -399,7 +399,10 @@ export class PlannerService {
     const errors = validateWorkspace(candidate);
     if (errors.length) throw new Error(errors[0]);
     for (const next of preview.projected)
-      Object.assign(cycle.sessions.find((s) => s.id === next.id)!, structuredClone(next));
+      Object.assign(
+        cycle.sessions.find((s) => s.id === next.id)!,
+        structuredClone(next),
+      );
     this.changed();
   }
   duplicateTemplate(template: Template): void {
@@ -622,9 +625,8 @@ export class PlannerService {
     await this.settled();
     const cycleCopy = structuredClone(cycle);
     const sessionCopy = structuredClone(session);
-    const { createSessionLandscapePdf, sessionLandscapePdfFilename } = await import(
-      './pdf/session-pdf'
-    );
+    const { createSessionLandscapePdf, sessionLandscapePdfFilename } =
+      await import('./pdf/session-pdf');
     const document = createSessionLandscapePdf(
       cycleCopy,
       sessionCopy,

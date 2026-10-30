@@ -1,7 +1,14 @@
 import { gameForms } from './games/games';
 import { GamesComponent } from './games/games.component';
 import { ExportsComponent } from './exports/exports.component';
-import { Component, HostListener, inject, OnInit, signal } from '@angular/core';
+import {
+  Component,
+  HostListener,
+  inject,
+  OnInit,
+  signal,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { DateFieldComponent } from './shared/date-field.component';
 import {
@@ -52,6 +59,7 @@ import {
     PlanningViewsComponent,
     ExportsComponent,
   ],
+  changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './app.component.html',
 })
 export class AppComponent implements OnInit {

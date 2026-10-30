@@ -1,4 +1,12 @@
-import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from '@angular/core';
+import {
+  Component,
+  EventEmitter,
+  Input,
+  OnChanges,
+  Output,
+  SimpleChanges,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MacroCycle, MesoCycle, Session, PHASES, POLICIES } from './models';
 import { validDate } from './planning';
@@ -18,6 +26,7 @@ import { DateFieldComponent } from './shared/date-field.component';
   standalone: true,
   imports: [FormsModule, DateFieldComponent],
   templateUrl: './planning-views.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './planning-views.component.css',
 })
 export class PlanningViewsComponent implements OnChanges {

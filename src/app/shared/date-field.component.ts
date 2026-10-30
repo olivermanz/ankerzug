@@ -6,6 +6,7 @@ import {
   Input,
   signal,
   ViewChild,
+  ChangeDetectionStrategy,
 } from '@angular/core';
 import {
   AbstractControl,
@@ -23,6 +24,7 @@ import { dateAt, dayNumber, validDate } from '../planning';
   standalone: true,
   templateUrl: './date-field.component.html',
   styleUrl: './date-field.component.css',
+  changeDetection: ChangeDetectionStrategy.Eager,
   providers: [
     { provide: NG_VALUE_ACCESSOR, useExisting: forwardRef(() => DateFieldComponent), multi: true },
     { provide: NG_VALIDATORS, useExisting: forwardRef(() => DateFieldComponent), multi: true },
