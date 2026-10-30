@@ -27,6 +27,31 @@ Their removal does not authorize changes to product scope or compatibility.
 Read the relevant sections before changing behavior. Keep these documents
 consistent with implementation decisions. Record a technology decision in
 TECHSTACK.md before introducing a technology outside its approved boundaries.
+Distinguish historical implementation notes from current contracts: SQLite schema
+v4 stores business-data v2, while backup and exchange formats have independent
+versions. Follow the explicit migration and normalization policies in
+ARCHITECTURE.md; preservation requirements do not prohibit those documented
+transformations or require readable exports to contain retired compatibility data.
+For template/game import changes, also read [TEMPLATE_IMPORT_FORMAT.md](TEMPLATE_IMPORT_FORMAT.md)
+and the [game import reference](skills/ankerzug-game-import/references/GAME_IMPORT_FORMAT.md).
+Keep affected skill references and ZIP packages synchronized with their contracts.
+
+## Specialist agent definitions
+
+Project-scoped Codex roles are defined in `.codex/agents/`:
+
+- [rust-coder](.codex/agents/rust-coder.toml): Rust/Tauri implementation and backend tests.
+- [rust-reviewer](.codex/agents/rust-reviewer.toml): independent Rust review, including database, import, backup and recovery compatibility.
+- [angular-coder](.codex/agents/angular-coder.toml): Angular implementation and frontend tests.
+- [angular-reviewer](.codex/agents/angular-reviewer.toml): independent Angular review, including compatibility through editing, serialization, imports and backup workflows.
+- [e2e-tester](.codex/agents/e2e-tester.toml): isolated native exploration and acceptance evidence.
+
+Use only the roles relevant to the assigned task. These definitions supplement
+this guide; shared rules remain here. Coders implement fixes, reviewers report
+findings without editing code, and the tester preserves reproducible evidence.
+Both reviewers treat incompatible changes and silent data loss as blocking
+findings and require older database/import/backup fixture coverage for affected
+paths. Roles inherit session model settings and permissions.
 
 ## Architecture rules
 
@@ -58,8 +83,9 @@ TECHSTACK.md before introducing a technology outside its approved boundaries.
 - Prefer standalone Angular components, framework features, HTML/CSS, Rust's
   standard library, and Tauri capabilities with scoped permissions. Production
   frontend assets are embedded in the desktop application.
-- The database engine, ORM, UI library, CSS framework, external state management,
-  cloud services, and update infrastructure remain undecided. Record choices in
+- SQLite with bundled rusqlite is the approved persistence choice in TECHSTACK.md.
+  An ORM, UI library, CSS framework, external state management, cloud services,
+  and update infrastructure remain undecided. Record new choices in
   TECHSTACK.md before adding them; justify dependencies by a concrete requirement,
   maintenance, licensing, and Windows/macOS/Linux compatibility.
 - When scaffolding, select compatible stable versions, keep Tauri packages
@@ -111,7 +137,7 @@ Actual commands from package.json:
 - `pnpm format` / `pnpm format:check`: Prettier frontend/Markdown format/check.
 - `pnpm desktop`: Tauri development application.
 - `pnpm desktop:build -- --locked`: native production packaging with locked Cargo dependencies.
-- `pnpm desktop:build --bundles deb,rpm -- --locked`: Linux packages; CI uses nsis on Windows and app on macOS.
+- `pnpm desktop:build --bundles deb,rpm -- --locked`: Linux packages; CI uses msi on Windows and dmg on macOS.
 - `pnpm rust:test`: locked Cargo tests.
 - `pnpm rust:check`: locked Clippy for all targets, warnings treated as errors.
 - `pnpm rust:format`: rustfmt check.

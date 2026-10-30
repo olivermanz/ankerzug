@@ -53,9 +53,9 @@ jobs:
           - os: ubuntu-24.04
             bundles: deb,rpm
           - os: windows-latest
-            bundles: nsis
+            bundles: msi
           - os: macos-latest
-            bundles: app
+            bundles: dmg
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -87,11 +87,6 @@ jobs:
       - run: pnpm desktop:build --bundles ${{ matrix.bundles }} -- --locked
         env:
           APPLE_SIGNING_IDENTITY: '-'
-      - name: Archive macOS application preserving executable permissions
-        if: runner.os == 'macOS'
-        env:
-          RELEASE_VERSION: ${{ needs.version.outputs.version }}
-        run: tar -czf "src-tauri/target/release/bundle/Ankerzug_${RELEASE_VERSION}_macOS-${{ runner.arch }}.app.tar.gz" -C src-tauri/target/release/bundle/macos Ankerzug.app
       - uses: actions/upload-artifact@v4
         with:
           name: ankerzug-${{ runner.os }}
@@ -99,8 +94,8 @@ jobs:
           path: |
             src-tauri/target/release/bundle/deb/*.deb
             src-tauri/target/release/bundle/rpm/*.rpm
-            src-tauri/target/release/bundle/nsis/*.exe
-            src-tauri/target/release/bundle/*.app.tar.gz
+            src-tauri/target/release/bundle/msi/*.msi
+            src-tauri/target/release/bundle/dmg/*.dmg
   release:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: [version, desktop]
@@ -122,9 +117,9 @@ jobs:
           RELEASE_VERSION: ${{ needs.version.outputs.version }}
           RELEASE_COMMIT: ${{ github.sha }}
         run: |
-          mapfile -d '' assets < <(find release-assets -type f \( -name '*.deb' -o -name '*.rpm' -o -name '*.exe' -o -name '*.app.tar.gz' \) -print0)
+          mapfile -d '' assets < <(find release-assets -type f \( -name '*.deb' -o -name '*.rpm' -o -name '*.msi' -o -name '*.dmg' \) -print0)
           if [ "${#assets[@]}" -ne 4 ]; then
-            echo "::error::Expected Linux DEB/RPM, Windows installer and macOS application archive."
+            echo "::error::Expected Linux DEB/RPM, Windows MSI and macOS DMG packages."
             exit 1
           fi
           gh release create "v${RELEASE_VERSION}" "${assets[@]}" \

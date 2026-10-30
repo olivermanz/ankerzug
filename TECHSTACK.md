@@ -49,7 +49,7 @@ See ARCHITECTURE.md for the detailed responsibility split, business model contra
 - Prefer Angular, Rust standard-library, and Tauri features before adding dependencies.
 - Add third-party packages, Rust crates, and Tauri plugins only for a concrete requirement. Document their purpose and check maintenance, licensing, and Windows/macOS/Linux compatibility.
 - Do not introduce another frontend framework, desktop shell, backend language, or build orchestrator. React, Vue, Svelte, Electron, and additional standalone Vite/Webpack configurations are outside this stack.
-- UI component libraries, CSS frameworks, external state-management libraries, databases, ORMs, cloud services, and auto-update infrastructure are not selected yet. Record the decision here before introducing them.
+- SQLite with bundled rusqlite is selected below under MVP implementation decisions. UI component libraries, CSS frameworks, external state-management libraries, ORMs, cloud services, and auto-update infrastructure are not selected yet. Record new decisions here before introducing them.
 
 ## Version and reproducibility policy
 
@@ -72,7 +72,7 @@ See ARCHITECTURE.md for the detailed responsibility split, business model contra
   repository-content write permission; pull-request jobs retain read permission.
 - Use the GitHub runner's bundled CLI for release creation and generated notes;
   no application dependency, update infrastructure or signing secret is introduced.
-  Assets are Linux DEB/RPM, Windows NSIS and a permission-preserving macOS app tarball.
+  Assets are Linux DEB/RPM, Windows MSI (Tauri's WiX bundler) and macOS DMG.
   macOS builds use ad-hoc signing; Apple certificate signing/notarization and
   Windows certificate signing remain unconfigured. Automated publication does not
   close the separately documented native acceptance gates.

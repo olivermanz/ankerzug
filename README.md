@@ -59,8 +59,8 @@ Systeme wie Fedora ein **.rpm**-Paket.
 
 ### macOS
 
-1. Lade das macOS-Archiv mit der Endung **.app.tar.gz** herunter.
-2. Entpacke es per Doppelklick im Finder.
+1. Lade das macOS-Disk-Image mit der Endung **.dmg** herunter.
+2. Öffne es per Doppelklick im Finder.
 3. Ziehe **Ankerzug.app** in den Ordner **Programme** und öffne die App dort.
 
 Die Beta ist noch nicht von Apple notarisiert. Falls macOS den Start wegen eines
@@ -71,7 +71,7 @@ Siehe dazu [Apples Anleitung zum Öffnen solcher Apps](https://support.apple.com
 
 ### Windows
 
-1. Lade den Windows-Installer mit der Endung **.exe** herunter.
+1. Lade den Windows-Installer mit der Endung **.msi** herunter.
 2. Öffne ihn per Doppelklick und folge dem Installationsassistenten.
 3. Starte **Ankerzug** über das Startmenü.
 
