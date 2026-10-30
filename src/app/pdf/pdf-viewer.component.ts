@@ -7,6 +7,7 @@ import {
   OnInit,
   signal,
   ViewChild,
+  ChangeDetectionStrategy,
 } from '@angular/core';
 import { DataAccessService } from '../data-access.service';
 import { PdfPages, PdfRendererService } from './pdf-viewer';
@@ -31,6 +32,7 @@ import { PdfPages, PdfRendererService } from './pdf-viewer';
       <p role="status">{{ message() }}</p>
     }
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './pdf-viewer.component.css',
 })
 export class PdfViewerComponent implements OnInit, OnDestroy {

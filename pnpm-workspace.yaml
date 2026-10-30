@@ -1,0 +1,12 @@
+allowBuilds:
+  '@parcel/watcher': true
+  core-js: false
+  esbuild: true
+  lmdb: true
+  msgpackr-extract: true
+
+# Oxc's WASM fallback pins alpha.3, but its runtime requires alpha.4 or newer.
+# Limit the correction to that binding; remove when upstream aligns its pins.
+overrides:
+  '@oxc-parser/binding-wasm32-wasi@0.150.0>@emnapi/core': 2.0.0-alpha.4
+  '@oxc-parser/binding-wasm32-wasi@0.150.0>@emnapi/runtime': 2.0.0-alpha.4

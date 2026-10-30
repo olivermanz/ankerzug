@@ -30,8 +30,7 @@ describe('training game UI and persistence orchestration', () => {
     await vi.waitFor(() => {
       fixture.detectChanges();
       const games = fixture.debugElement.query(By.directive(GamesComponent))?.componentInstance as
-        | GamesComponent
-        | undefined;
+        GamesComponent | undefined;
       expect(games?.busy() ?? false).toBe(false);
     });
     await render();

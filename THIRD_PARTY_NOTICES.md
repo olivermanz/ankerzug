@@ -11,7 +11,7 @@ The list covers production JavaScript bundles, Rust native dependencies, the
 PDF.js worker, and the bundled Noto Sans font. Development-only tools are not
 included unless an asset is bundled into the application.
 
-## @angular/common 21.2.25
+## @angular/common 22.2.4
 
 Type: JavaScript production dependency<br>
 SPDX: MIT
@@ -43,7 +43,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-## @angular/compiler 21.2.25
+## @angular/compiler 22.2.4
 
 Type: JavaScript production dependency<br>
 SPDX: MIT
@@ -75,7 +75,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-## @angular/core 21.2.25
+## @angular/core 22.2.4
 
 Type: JavaScript production dependency<br>
 SPDX: MIT
@@ -107,7 +107,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-## @angular/forms 21.2.25
+## @angular/forms 22.2.4
 
 Type: JavaScript production dependency<br>
 SPDX: MIT
@@ -139,7 +139,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-## @angular/platform-browser 21.2.25
+## @angular/platform-browser 22.2.4
 
 Type: JavaScript production dependency<br>
 SPDX: MIT
@@ -236,7 +236,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## @tauri-apps/api 2.12.1
+## @tauri-apps/api 2.12.4
 
 Type: JavaScript production dependency<br>
 SPDX: Apache-2.0 OR MIT
@@ -805,11 +805,11 @@ Source: git+https://github.com/mozilla/pdf.js.git
    END OF TERMS AND CONDITIONS
 ```
 
-## rusqlite 0.40.2
+## rusqlite 0.41.1
 
 Type: Rust native dependency<br>
 SPDX: MIT
-Source: https://crates.io/crates/rusqlite/0.40.2
+Source: https://crates.io/crates/rusqlite/0.41.1
 
 ### LICENSE
 
@@ -1047,11 +1047,11 @@ Source: https://github.com/reactivex/rxjs.git
  limitations under the License.
 ```
 
-## serde_json 1.0.151
+## serde_json 1.0.154
 
 Type: Rust native dependency<br>
 SPDX: MIT OR Apache-2.0
-Source: https://crates.io/crates/serde_json/1.0.151
+Source: https://crates.io/crates/serde_json/1.0.154
 
 ### LICENSE-APACHE
 
@@ -1421,7 +1421,7 @@ TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
 END OF TERMS AND CONDITIONS
 ```
 
-## SQLite 3.53.2
+## SQLite 3.54.1
 
 Type: bundled native database engine via libsqlite3-sys<br>
 SPDX: LicenseRef-Public-Domain
@@ -1433,11 +1433,11 @@ Source: https://sqlite.org/copyright.html
 The SQLite source code is in the public domain.
 ```
 
-## tauri-plugin-dialog 2.7.1
+## tauri-plugin-dialog 2.8.4
 
 Type: Rust native dependency<br>
 SPDX: Apache-2.0 OR MIT
-Source: https://crates.io/crates/tauri-plugin-dialog/2.7.1
+Source: https://crates.io/crates/tauri-plugin-dialog/2.8.4
 
 ### LICENSE.spdx
 
@@ -1464,11 +1464,11 @@ PackageDownloadLocation: git+ssh://github.com/tauri-apps/tauri.git
 Creator: Person: Daniel Thompson-Yvetot
 ```
 
-## tauri 2.12.1
+## tauri 2.12.5
 
 Type: Rust native dependency<br>
 SPDX: Apache-2.0 OR MIT
-Source: https://crates.io/crates/tauri/2.12.1
+Source: https://crates.io/crates/tauri/2.12.5
 
 ### LICENSE-APACHE-2.0
 
@@ -1673,6 +1673,38 @@ INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
 LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
 OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 PERFORMANCE OF THIS SOFTWARE.
+```
+
+## zod 4.3.6
+
+Type: JavaScript production dependency<br>
+SPDX: MIT
+Source: git+https://github.com/colinhacks/zod.git
+
+### LICENSE
+
+```text
+MIT License
+
+Copyright (c) 2025 Colin McDonnell
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 ```
 
 ## Noto Sans Regular
