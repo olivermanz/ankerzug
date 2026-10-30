@@ -97,9 +97,10 @@ The first MVP provides pnpm scripts for frontend development/builds, Tauri devel
 
 ## Release attribution policy
 
-- Ankerzug-owned material is distributed under Apache License 2.0;
+- Ankerzug-owned material is distributed under GNU General Public License v3.0
+  (SPDX: GPL-3.0-only);
   third-party components retain their own licenses and are never described as
-  Apache-licensed unless their own license says so.
+  GPL-licensed unless their own license says so.
 - `pnpm licenses:generate` deterministically creates `THIRD_PARTY_NOTICES.md` from
   the locked production JavaScript and Rust dependency roots and bundled assets.
   Run `pnpm install --frozen-lockfile` and

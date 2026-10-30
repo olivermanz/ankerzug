@@ -88,7 +88,7 @@ shows descriptive goals, assigned sessions and current planned totals; partial
 arrow counts show coverage. Changes and deletions update the derived views.
 **Wettkämpfe** exposes existing competition controls, while **Einstellungen**
 contains the planning proposal and warning configuration previously shown in the
-mesocycle editor. Its read-only **Info** subpage exposes Ankerzug's Apache 2.0 terms
+mesocycle editor. Its read-only **Info** subpage exposes Ankerzug's GPLv3 terms (GPL-3.0-only)
 and the complete bundled third-party license notices for offline reading. New views
 use shared planned data only.
 
