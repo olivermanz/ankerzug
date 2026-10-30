@@ -155,7 +155,7 @@ describe('MVP UI acceptance', () => {
     expect(root.textContent).toContain('Ankerzug');
     expect(root.textContent).toContain('Version');
     expect(root.textContent).toContain('Copyright Oliver Manz');
-    expect(root.textContent).toContain('Apache License 2.0');
+    expect(root.textContent).toContain('GNU General Public License v3.0 (GPL-3.0-only)');
     expect(root.textContent).toContain('fachliche, medizinische oder sicherheitsbezogene');
     expect(root.textContent).toContain('Drittanbieter-Lizenzen');
     expect(

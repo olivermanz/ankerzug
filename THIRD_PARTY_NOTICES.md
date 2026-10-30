@@ -3,9 +3,9 @@
 This document is generated from the locked production dependency roots by
 `pnpm licenses:generate`. It is part of the Ankerzug release.
 
-Ankerzug-owned material is licensed under Apache License 2.0.
+Ankerzug-owned material is licensed under GNU General Public License v3.0 (GPL-3.0-only).
 The third-party components below retain their stated licenses; no third-party
-component is licensed under Apache License 2.0 by this document.
+component is licensed under GNU General Public License v3.0 (GPL-3.0-only) by this document.
 
 The list covers production JavaScript bundles, Rust native dependencies, the
 PDF.js worker, and the bundled Noto Sans font. Development-only tools are not
