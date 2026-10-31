@@ -18,6 +18,20 @@ describe('typed IPC commands', () => {
     return TestBed.inject(DataAccessService);
   }
 
+  it('loads and acknowledges the independent welcome version through typed commands', async () => {
+    mocks.invoke.mockResolvedValueOnce(null);
+    expect(await access().loadWelcomeModalVersion()).toBeNull();
+    expect(mocks.invoke).toHaveBeenLastCalledWith('load_welcome_modal_version', undefined);
+    mocks.invoke.mockResolvedValueOnce(3);
+    expect(await access().acknowledgeWelcomeModal(2)).toBe(3);
+    expect(mocks.invoke).toHaveBeenLastCalledWith('acknowledge_welcome_modal', { version: 2 });
+    mocks.invoke.mockRejectedValueOnce('Speicherfehler');
+    await expect(access().acknowledgeWelcomeModal(2)).rejects.toEqual({
+      code: 'storage',
+      message: 'Speicherfehler',
+    });
+  });
+
   it('uses scoped native game dialogs and the game export contract', async () => {
     const dataAccess = access();
     mocks.invoke.mockResolvedValueOnce(null);

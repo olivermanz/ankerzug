@@ -49,6 +49,7 @@ describe('training game UI and persistence orchestration', () => {
   beforeEach(async () => {
     stored = { revision: 1, workspace: { cycles: [], templates: [] } };
     access = {
+      loadWelcomeModalVersion: vi.fn().mockResolvedValue(1),
       load: vi.fn().mockImplementation(async () => structuredClone(stored)),
       save: vi.fn().mockImplementation(async (input: SaveInput) => {
         stored = {

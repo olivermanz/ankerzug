@@ -1,0 +1,45 @@
+@if (welcome.error()) {
+  <aside class="welcome-error" role="alert">
+    <span>{{ welcome.error() }}</span>
+    <button type="button" (click)="welcome.retry()" [disabled]="welcome.busy()">
+      Erneut versuchen
+    </button>
+  </aside>
+}
+<dialog
+  #dialog
+  aria-labelledby="welcome-title"
+  aria-describedby="welcome-text"
+  (cancel)="close($event)"
+>
+  <header>
+    <span class="eyebrow">DEIN START MIT ANKERZUG</span>
+    <button
+      type="button"
+      class="close"
+      aria-label="Willkommenshinweis schließen"
+      (click)="close()"
+      autofocus
+    >
+      ✕
+    </button>
+  </header>
+  <div class="viewport" [class.backwards]="backwards()" aria-live="polite" aria-atomic="true">
+    @for (index of [step()]; track index) {
+      <section class="page">
+        <span class="page-mark" aria-hidden="true">{{ index + 1 }}</span>
+        <h1 id="welcome-title">{{ pages[index].title }}</h1>
+        <p id="welcome-text">{{ pages[index].text }}</p>
+      </section>
+    }
+  </div>
+  <footer>
+    <span class="position">{{ step() + 1 }} von {{ pages.length }}</span>
+    <div class="actions">
+      <button type="button" (click)="move(-1)" [disabled]="step() === 0">Zurück</button>
+      <button type="button" class="primary" (click)="advance()">
+        {{ step() < pages.length - 1 ? 'Weiter' : 'Los geht’s' }}
+      </button>
+    </div>
+  </footer>
+</dialog>

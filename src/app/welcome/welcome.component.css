@@ -1,0 +1,123 @@
+dialog {
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 28px;
+  width: min(620px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  box-shadow: 0 24px 100px #152e3650;
+}
+dialog::backdrop {
+  background: #152e36a6;
+}
+header,
+footer,
+.actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--green);
+}
+.close {
+  flex-shrink: 0;
+}
+.viewport {
+  overflow: hidden;
+}
+.page {
+  padding: 28px 0;
+  min-height: 290px;
+  animation: enter 220ms ease-out;
+}
+.backwards .page {
+  animation-name: enter-back;
+}
+.page-mark {
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  color: var(--green);
+  background: #dfe9dc;
+  font-weight: 700;
+}
+h1 {
+  font-size: clamp(23px, 4vw, 30px);
+  line-height: 1.2;
+  margin: 18px 0 14px;
+  overflow-wrap: anywhere;
+}
+p {
+  line-height: 1.65;
+  margin: 0;
+}
+footer {
+  border-top: 1px solid var(--line);
+  padding-top: 20px;
+}
+.position {
+  color: var(--muted);
+  font-size: 13px;
+  white-space: nowrap;
+}
+.welcome-error {
+  position: fixed;
+  z-index: 100;
+  left: 16px;
+  right: 16px;
+  bottom: 16px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid #a94d26;
+  border-radius: 8px;
+  background: #fff3e7;
+  box-shadow: 0 4px 24px #152e3620;
+}
+@keyframes enter {
+  from {
+    opacity: 0;
+    transform: translateX(32px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+@keyframes enter-back {
+  from {
+    opacity: 0;
+    transform: translateX(-32px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+@media (max-width: 420px) {
+  dialog {
+    padding: 20px;
+  }
+  footer {
+    flex-wrap: wrap;
+  }
+  .actions {
+    margin-left: auto;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .page {
+    animation: none;
+  }
+}

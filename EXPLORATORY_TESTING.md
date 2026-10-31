@@ -376,3 +376,68 @@ Evidence locations:
 Outstanding checks or defects:
 Completion gate: passed / pending
 ```
+
+## Versioned welcome wizard acceptance
+
+Use a fresh isolated store and the real main window. Capture the first page,
+verify all six headings and body texts, navigate forward and backward, and check
+the first/last button states and page counter. Check a small desktop window and
+reduced-motion preferences. Verify focus remains inside the modal, Escape closes
+it, focus returns to the main application and backdrop clicks do not dismiss it.
+
+Close on an intermediate page, restart the process with the same data directory
+and verify the dialog stays hidden. Repeat in a separate fresh run with the final
+action and the close button. Open a PDF viewer and verify it has no welcome dialog.
+The infrastructure smoke must dismiss the initial wizard before creating its cycle
+and assert the wizard remains absent after restart.
+
+For a version-increase check, acknowledge version 1, then build with
+`WELCOME_MODAL_VERSION` increased to 2 and restart against the same isolated test
+store. Verify the wizard reappears from page 1 and stays hidden after dismissal and
+another restart. Record the temporary build configuration; restore the source
+constant afterwards. Do not edit SQLite or call IPC directly as a substitute for
+this UI acceptance check. Verify restoring a training backup does not reset the
+acknowledgment.
+
+Automated tests separately cover version comparison, monotonic acknowledgments,
+invalid input, read/write failures and retry, old database upgrades and backup
+independence. Label injected failures separately from native UI evidence. Native
+keyboard/focus and packaged Windows/macOS/Linux behavior remain platform gates;
+WebDriver checks alone do not establish them.
+
+### Welcome wizard validation record — 2026-10-31
+
+Tested the implementation on Fedora Linux 44, x86_64, with WebKitGTK, against
+base commit `609a88f` plus the uncommitted welcome implementation. Independent
+Angular and Rust reviews completed within two rounds each; the Rust preservation
+evidence gap and the observed last-page button focus loss were corrected.
+
+- `pnpm test`: 192 tests passed; `pnpm build`: passed.
+- `pnpm rust:test`: 46 tests passed; `pnpm rust:check` and `pnpm rust:format`: passed.
+- `pnpm explore:test`: 5 tests passed; touched-file Prettier and
+  `git diff --check`: passed.
+- `pnpm explore build` and `pnpm explore:smoke --native`: passed, including initial
+  welcome dismissal, hidden-after-restart behavior, cycle persistence, native
+  backup cancellation/save and window-manager close/reopen. Local evidence run:
+  `6dc4a683-11ee-40cc-832e-c9638c83b32d`.
+- Additional isolated native runs exercised all six pages, back/forward, final
+  dismissal, intermediate-page native Escape, restart persistence and 800x600
+  rendering. Evidence includes run `f7c44fa7-dec3-4d7f-a5fc-583b1b311b23`.
+- A temporary version-2 build reopened the wizard at page 1 against the same
+  acknowledged version-1 store. The persistent final button retained keyboard
+  focus; final acknowledgment and a process restart kept the wizard hidden.
+  The source constant was restored to 1 after this acceptance check, and a final
+  native rebuild confirmed that acknowledgment 2 suppresses the dialog for
+  version 1 as well.
+- Native backup restoration during this run was canceled after desktop picker
+  path autocompletion interfered with automated input; preference independence
+  through both backup readers and recovery is covered by the Rust tests, not
+  established by that canceled UI attempt.
+
+The final constant-1 build passed `pnpm explore:smoke --native` again in local run
+`8bd626f5-bedd-45ff-ae5b-259065b569c2`. Opening the real training-plan A4 PDF and
+switching to its separate viewer confirmed no welcome dialog in that window;
+the viewer screenshot was inspected. All managed test applications were stopped.
+
+Windows/macOS, installed packages and screen-reader acceptance remain pending.
+This scoped feature evidence does not establish complete product release acceptance.
