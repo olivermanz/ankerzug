@@ -25,6 +25,14 @@ fn load_workspace(state: State<Backend>) -> Result<Snapshot> {
     lock(&state)?.load()
 }
 #[tauri::command]
+fn load_welcome_modal_version(state: State<Backend>) -> Result<Option<u32>> {
+    lock(&state)?.load_welcome_modal_version()
+}
+#[tauri::command]
+fn acknowledge_welcome_modal(version: u32, state: State<Backend>) -> Result<u32> {
+    lock(&state)?.acknowledge_welcome_modal(version)
+}
+#[tauri::command]
 fn save_workspace(input: SaveInput, state: State<Backend>) -> Result<Snapshot> {
     lock(&state)?.save(input)
 }
@@ -142,6 +150,8 @@ pub fn run() {
             games::read_game_package,
             games::pick_game_pdfs,
             load_workspace,
+            load_welcome_modal_version,
+            acknowledge_welcome_modal,
             save_workspace,
             read_game_attachments,
             create_backup,

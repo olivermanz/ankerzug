@@ -208,7 +208,8 @@ and preview state. DataAccessService wraps only explicit typed IPC operations.
 Errors have `code` (`invalidInput`, `conflict`, `storage`, `invalidStoredValue`) and
 `message`. Deserialization errors from Tauri are normalized as transport failures.
 
-SQLite `user_version=2` is installed transactionally on a new database. A private
+The current SQLite schema is `user_version=6`; business documents and backups remain
+version 2. In the original SQLite `user_version=2` layout, the private
 `StoredDocument` validates schema, safe integer revision and business payload.
 A version-1 upgrade validates and converts every live and recovery document before
 rebuilding both tables in the same immediate transaction. IDs, revisions, names,
@@ -239,7 +240,7 @@ SQLite `user_version=4` retires planned shared-equipment changes and material wa
 The v3-to-v4 upgrade normalizes live and recovery payloads in one immediate transaction,
 discarding only those retired fields. Training-content material remains free text.
 
-Every write uses `BEGIN IMMEDIATE`, compares the expected revision, and replaces
+Every workspace write uses `BEGIN IMMEDIATE`, compares the expected revision, and replaces
 the entire aggregate atomically. An older window's write is rejected. Autosave
 captures a deep copy, serializes requests, tracks edits during an in-flight write,
 and never replaces newer form values with an old response. Invalid and failed
@@ -623,3 +624,38 @@ forms, Tauri IPC and SQLite. The optional Linux desktop adapter handles app-owne
 native dialogs and real window-manager closure. No business rule or persistence
 command is replaced for testing. See [EXPLORATORY_TESTING.md](EXPLORATORY_TESTING.md)
 for evidence, remaining OS-dialog boundaries and acceptance charters.
+
+
+## Versioned welcome wizard
+
+The main Angular application opens a six-page German welcome dialog when the
+locally acknowledged version is absent or lower than `WELCOME_MODAL_VERSION`.
+The constant starts at 1 and changes deliberately for important announcements,
+independently of application releases, SQLite schema, business data and exchange
+formats. Separate PDF viewer windows never initialize this workflow.
+
+`WelcomeService` owns the version comparison and acknowledgment state; the
+standalone dialog owns rendering, navigation and focus. Closing through the close
+button, Escape or the final action acknowledges the current version. Displaying
+the dialog and navigating pages do not acknowledge it. A failed acknowledgment
+allows dismissal but leaves a visible retry action; a failed initial read also
+reports an error and supports retry without blocking training planning.
+
+Typed commands `load_welcome_modal_version() -> number | null` and
+`acknowledge_welcome_modal({ version }) -> number` use the existing error contract.
+Versions are positive unsigned 32-bit integers. SQLite schema v6 adds a private
+singleton `app_preferences` table with `welcome_modal_version`; an absent row means
+unseen. The v5-to-v6 migration is transactional and does not rewrite workspace or
+recovery data. Acknowledgment stores the maximum of the existing and requested
+versions atomically, so an older application cannot lower a newer acknowledgment.
+Invalid stored values fail explicitly. Preferences do not participate in workspace
+revisions, autosave, backup payloads, restore or recovery; both backup readers remain
+unchanged.
+
+The dialog uses native HTML dialog semantics, keyboard focus containment and
+restoration, a persistent close control, previous/next actions and a page counter.
+Backdrop clicks do not dismiss it. Page transitions respect reduced motion. Each
+page has one heading and a body of at most 300 characters. Progress describes
+organizational session status, and AI import describes external conversion through
+the existing import instructions rather than an embedded AI service. No dependency
+or additional native permission is required.

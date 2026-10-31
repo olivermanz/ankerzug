@@ -24,6 +24,11 @@ try {
   const session = run('start');
   let snapshot = run('snapshot');
   assert.equal(snapshot.diagnostics.length, 0);
+  assert.ok(snapshot.text.includes('Willkommen bei Ankerzug'), 'First launch must show welcome');
+  run('screenshot');
+  run('click', { selector: find(snapshot, 'button', 'Willkommenshinweis schließen') });
+  snapshot = run('snapshot');
+  assert.ok(!snapshot.text.includes('Willkommen bei Ankerzug'), 'Welcome must close');
   run('click', { selector: find(snapshot, 'button', '＋ Makrozyklus erstellen') });
   snapshot = run('snapshot');
   const name = `AI exploration smoke ${new Date().toISOString()}`;
@@ -47,6 +52,10 @@ try {
   run('restart');
   snapshot = run('snapshot');
   assert.ok(snapshot.text.includes(name), 'Macrocycle must survive a native process restart');
+  assert.ok(
+    !snapshot.text.includes('Willkommen bei Ankerzug'),
+    'Acknowledged welcome must remain hidden after a native process restart',
+  );
   assert.equal(snapshot.diagnostics.length, 0);
   run('screenshot');
   if (native) {

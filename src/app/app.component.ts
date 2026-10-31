@@ -1,3 +1,4 @@
+import { WelcomeComponent } from './welcome/welcome.component';
 import { gameForms } from './games/games';
 import { GamesComponent } from './games/games.component';
 import { ExportsComponent } from './exports/exports.component';
@@ -53,6 +54,7 @@ import {
   selector: 'app-root',
   standalone: true,
   imports: [
+    WelcomeComponent,
     GamesComponent,
     FormsModule,
     DateFieldComponent,

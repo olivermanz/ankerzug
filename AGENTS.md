@@ -28,7 +28,7 @@ Read the relevant sections before changing behavior. Keep these documents
 consistent with implementation decisions. Record a technology decision in
 TECHSTACK.md before introducing a technology outside its approved boundaries.
 Distinguish historical implementation notes from current contracts: SQLite schema
-v4 stores business-data v2, while backup and exchange formats have independent
+v6 stores business-data v2 and separate local app preferences, while backup and exchange formats have independent
 versions. Follow the explicit migration and normalization policies in
 ARCHITECTURE.md; preservation requirements do not prohibit those documented
 transformations or require readable exports to contain retired compatibility data.
