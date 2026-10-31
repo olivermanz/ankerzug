@@ -18,6 +18,12 @@ describe('typed IPC commands', () => {
     return TestBed.inject(DataAccessService);
   }
 
+  it('opens the fixed help destination without accepting a URL', async () => {
+    mocks.invoke.mockResolvedValueOnce(undefined);
+    await expect(access().openHelp()).resolves.toBeUndefined();
+    expect(mocks.invoke).toHaveBeenLastCalledWith('open_help', undefined);
+  });
+
   it('loads and acknowledges the independent welcome version through typed commands', async () => {
     mocks.invoke.mockResolvedValueOnce(null);
     expect(await access().loadWelcomeModalVersion()).toBeNull();

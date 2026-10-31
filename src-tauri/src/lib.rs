@@ -1,6 +1,7 @@
 #[cfg(feature = "exploration")]
 mod exploration;
 mod games;
+mod help;
 mod legacy;
 mod models;
 mod pdf_export;
@@ -147,6 +148,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            help::open_help,
             games::read_game_package,
             games::pick_game_pdfs,
             load_workspace,
