@@ -45,7 +45,6 @@ import {
   acceptPreview,
   captureOriginalPlan,
   applyTemplate,
-  basisTemplates,
   generatePreview,
   newContent,
   nextOffset,
@@ -80,6 +79,10 @@ export class PlannerService {
   private timer?: ReturnType<typeof setTimeout>;
   private waiters: Array<{ resolve: () => void; reject: (error: Error) => void }> = [];
   private pendingAttachmentBytes = new Map<string, number[]>();
+
+  openHelp(): Promise<void> {
+    return this.access.openHelp();
+  }
 
   addCompetition(cycle: MacroCycle): void {
     cycle.competitions.push({
@@ -450,10 +453,6 @@ export class PlannerService {
       this.ready.set(true);
       this.status.set('saved');
       this.error.set('');
-      if (snapshot.revision === 0) {
-        this.workspace().templates = basisTemplates();
-        this.changed();
-      }
     } catch (e) {
       this.fail(e);
     }

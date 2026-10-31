@@ -118,6 +118,11 @@ button.primary:hover {
   padding: 9px 10px;
   font-weight: 450;
 }
+.sidebar .help-link {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
 .sidebar button:hover,
 .sidebar button.active {
   background: #345647;

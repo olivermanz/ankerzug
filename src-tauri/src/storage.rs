@@ -732,6 +732,28 @@ pub fn validate(workspace: &Workspace) -> Result<()> {
     Ok(())
 }
 
+/// Explicitly map the SQLite value: corrupt preferences must never become first-run defaults.
+fn read_welcome_modal_version(connection: &Connection) -> Result<Option<u32>> {
+    let value = connection
+        .query_row(
+            "SELECT welcome_modal_version FROM app_preferences WHERE id=1",
+            [],
+            |row| row.get::<_, rusqlite::types::Value>(0),
+        )
+        .optional()?;
+    value
+        .map(|value| match value {
+            rusqlite::types::Value::Integer(version) => u32::try_from(version)
+                .ok()
+                .filter(|version| *version > 0)
+                .ok_or_else(|| stored("Ungültige gespeicherte Version des Willkommensdialogs.")),
+            _ => Err(stored(
+                "Ungültige gespeicherte Version des Willkommensdialogs.",
+            )),
+        })
+        .transpose()
+}
+
 pub struct Store {
     connection: Connection,
 }
@@ -743,7 +765,7 @@ impl Store {
     fn from_connection(mut connection: Connection) -> Result<Self> {
         connection.busy_timeout(std::time::Duration::from_secs(5))?;
         let mut version: u32 = connection.query_row("PRAGMA user_version", [], |r| r.get(0))?;
-        if version > 5 {
+        if version > 6 {
             return Err(stored(
                 "Die Datenbank stammt aus einer neueren Ankerzug-Version.",
             ));
@@ -888,6 +910,7 @@ impl Store {
             }
             transaction.execute_batch("PRAGMA user_version=4;")?;
             transaction.commit()?;
+            version = 4;
         }
 
         if version == 4 {
@@ -920,12 +943,38 @@ impl Store {
             transaction.commit()?;
             version = 5;
         }
-        if version != 5 {
+        if version == 5 {
+            let transaction =
+                connection.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
+            transaction.execute_batch(
+                "CREATE TABLE app_preferences (id INTEGER PRIMARY KEY CHECK(id=1), welcome_modal_version INTEGER NOT NULL CHECK(typeof(welcome_modal_version)='integer' AND welcome_modal_version BETWEEN 1 AND 4294967295)); PRAGMA user_version=6;",
+            )?;
+            transaction.commit()?;
+            version = 6;
+        }
+        if version != 6 {
             return Err(stored(
                 "Diese Entwicklungsversion unterstützt nur eine neu angelegte Datenbank. Bitte Backup wiederherstellen.",
             ));
         }
         Ok(Self { connection })
+    }
+    pub fn load_welcome_modal_version(&self) -> Result<Option<u32>> {
+        read_welcome_modal_version(&self.connection)
+    }
+    pub fn acknowledge_welcome_modal(&mut self, version: u32) -> Result<u32> {
+        require(version > 0, "Ungültige Version des Willkommensdialogs.")?;
+        let transaction = self
+            .connection
+            .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
+        let version = read_welcome_modal_version(&transaction)?
+            .map_or(version, |previous| previous.max(version));
+        transaction.execute(
+            "INSERT INTO app_preferences (id, welcome_modal_version) VALUES (1, ?1) ON CONFLICT(id) DO UPDATE SET welcome_modal_version=excluded.welcome_modal_version",
+            params![version],
+        )?;
+        transaction.commit()?;
+        Ok(version)
     }
     fn document(&self) -> Result<Option<StoredDocument>> {
         Ok(self
@@ -1168,6 +1217,312 @@ impl Store {
 mod tests {
     use super::*;
     const FIXTURE: &str = include_str!("../../fixtures/workspace-v2.json");
+    #[test]
+    fn welcome_version_is_monotonic_and_persists_after_reopen() {
+        let path = std::env::temp_dir().join(format!(
+            "ankerzug-welcome-{}-{}.sqlite3",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        {
+            let mut store = Store::open(&path).unwrap();
+            assert_eq!(store.load_welcome_modal_version().unwrap(), None);
+            assert!(matches!(
+                store.acknowledge_welcome_modal(0).unwrap_err().code,
+                ErrorCode::InvalidInput
+            ));
+            assert_eq!(store.load_welcome_modal_version().unwrap(), None);
+            assert_eq!(store.acknowledge_welcome_modal(3).unwrap(), 3);
+            assert_eq!(store.acknowledge_welcome_modal(1).unwrap(), 3);
+            assert_eq!(store.acknowledge_welcome_modal(u32::MAX).unwrap(), u32::MAX);
+            assert_eq!(store.load().unwrap().revision, 0);
+        }
+        let store = Store::open(&path).unwrap();
+        assert_eq!(store.load_welcome_modal_version().unwrap(), Some(u32::MAX));
+        drop(store);
+        std::fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn welcome_preferences_are_independent_of_backup_restore_and_recovery() {
+        let mut store = store();
+        store.acknowledge_welcome_modal(7).unwrap();
+        for contents in [include_str!("../../fixtures/workspace-v1.json"), FIXTURE] {
+            let revision = store.load().unwrap().revision;
+            store.restore(contents, revision).unwrap();
+            assert_eq!(store.load_welcome_modal_version().unwrap(), Some(7));
+        }
+        let backup = store.backup().unwrap();
+        assert!(!backup.contains("welcomeModalVersion"));
+        assert!(!backup.contains("welcome_modal_version"));
+        store.recover(2).unwrap();
+        assert_eq!(store.load_welcome_modal_version().unwrap(), Some(7));
+        let mut fresh = self::store();
+        fresh.restore(&backup, 0).unwrap();
+        assert_eq!(fresh.load_welcome_modal_version().unwrap(), None);
+    }
+
+    #[test]
+    fn invalid_welcome_storage_fails_explicitly_without_overwriting() {
+        for invalid in ["0", "-1", "4294967296", "1.5", "'invalid'"] {
+            let mut store = store();
+            store
+                .connection
+                .execute_batch("PRAGMA ignore_check_constraints=ON")
+                .unwrap();
+            store
+                .connection
+                .execute_batch(&format!(
+                    "INSERT INTO app_preferences VALUES (1, {invalid})"
+                ))
+                .unwrap();
+            assert!(matches!(
+                store.load_welcome_modal_version().unwrap_err().code,
+                ErrorCode::InvalidStoredValue
+            ));
+            assert!(matches!(
+                store.acknowledge_welcome_modal(1).unwrap_err().code,
+                ErrorCode::InvalidStoredValue
+            ));
+        }
+        let mut store = store();
+        store.acknowledge_welcome_modal(2).unwrap();
+        store.connection.execute_batch("CREATE TRIGGER fail_welcome BEFORE UPDATE ON app_preferences BEGIN SELECT RAISE(ABORT, 'injected preference failure'); END;").unwrap();
+        assert!(matches!(
+            store.acknowledge_welcome_modal(3).unwrap_err().code,
+            ErrorCode::Storage
+        ));
+        assert_eq!(store.load_welcome_modal_version().unwrap(), Some(2));
+        assert_eq!(store.load().unwrap().revision, 0);
+    }
+
+    #[test]
+    fn welcome_schema_constraints_reject_invalid_versions() {
+        let store = store();
+        for invalid in ["0", "-1", "4294967296", "1.5", "'invalid'", "NULL"] {
+            assert!(
+                store
+                    .connection
+                    .execute_batch(&format!(
+                        "INSERT INTO app_preferences VALUES (1, {invalid})"
+                    ))
+                    .is_err()
+            );
+        }
+        assert!(
+            store
+                .connection
+                .execute("INSERT INTO app_preferences VALUES (2, 1)", [])
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn all_older_schema_paths_preserve_live_and_recovery_with_fresh_preferences() {
+        let games: serde_json::Value =
+            serde_json::from_str(include_str!("../../fixtures/games-package-v1.json")).unwrap();
+        for version in 1..=5 {
+            let path = std::env::temp_dir().join(format!(
+                "ankerzug-upgrade-{version}-{}-{}.sqlite3",
+                std::process::id(),
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_nanos()
+            ));
+            let connection = Connection::open(&path).unwrap();
+            connection.execute_batch(&format!(
+                "CREATE TABLE documents (id INTEGER PRIMARY KEY, schema_version INTEGER NOT NULL, revision INTEGER NOT NULL, payload TEXT NOT NULL); CREATE TABLE recovery (id INTEGER PRIMARY KEY, schema_version INTEGER NOT NULL, revision INTEGER NOT NULL, payload TEXT NOT NULL); PRAGMA user_version={version};"
+            )).unwrap();
+            if version >= 3 {
+                connection
+                    .execute_batch(
+                        "CREATE TABLE game_attachments (id TEXT PRIMARY KEY, bytes BLOB NOT NULL);",
+                    )
+                    .unwrap();
+            }
+            let fixture = if version == 1 {
+                include_str!("../../fixtures/workspace-v1.json")
+            } else {
+                FIXTURE
+            };
+            let packet: serde_json::Value = serde_json::from_str(fixture).unwrap();
+            let mut live = packet["workspace"].clone();
+            // Keep a non-default trainer decision and the original fixture IDs/legacy profiles.
+            live["cycles"][0]["sessions"][0]["manuallyModified"] = true.into();
+            if version >= 2 {
+                live["games"] = games["games"].clone();
+            }
+            let expected_live = if version == 1 {
+                crate::legacy::convert(&live.to_string()).unwrap()
+            } else {
+                serde_json::from_value::<Workspace>(live.clone()).unwrap()
+            };
+            let mut expected_recovery = expected_live.clone();
+            expected_recovery.cycles[0].name = "Retained recovery record".into();
+            let mut recovery = live.clone();
+            recovery["cycles"][0]["name"] = "Retained recovery record".into();
+            if (2..=3).contains(&version) {
+                // Representative historic fields retired by the v3-to-v4 normalization.
+                for value in [&mut live, &mut recovery] {
+                    value["cycles"][0]["materialChanges"] = serde_json::json!([{"id":"retired-equipment", "date":"2026-10-01", "description":"Old equipment"}]);
+                    value["cycles"][0]["planning"]["materialLookbackDays"] = 7.into();
+                    value["cycles"][0]["planning"]["phases"][0]["capabilities"]["materialWarning"] =
+                        true.into();
+                }
+            }
+            let (metadata, attachment_bytes) = without_attachment_bytes(&expected_live);
+            if version >= 3 {
+                for attachment in &attachment_bytes {
+                    connection
+                        .execute(
+                            "INSERT INTO game_attachments VALUES (?1, ?2)",
+                            params![attachment.id, attachment.bytes],
+                        )
+                        .unwrap();
+                }
+                // v3+ live documents have metadata; recovery remains a self-contained copy.
+                live["games"] = serde_json::to_value(&metadata.games).unwrap();
+            }
+            let schema = if version == 1 { 1 } else { 2 };
+            connection
+                .execute(
+                    "INSERT INTO documents VALUES (1, ?1, 8, ?2)",
+                    params![schema, live.to_string()],
+                )
+                .unwrap();
+            connection
+                .execute(
+                    "INSERT INTO recovery VALUES (19, ?1, 6, ?2)",
+                    params![schema, recovery.to_string()],
+                )
+                .unwrap();
+            drop(connection);
+            {
+                let mut store = Store::open(&path).unwrap();
+                assert_eq!(
+                    store
+                        .connection
+                        .query_row("PRAGMA user_version", [], |row| row.get::<_, u32>(0))
+                        .unwrap(),
+                    6
+                );
+                assert_eq!(store.load_welcome_modal_version().unwrap(), None);
+                assert_eq!(store.load().unwrap().revision, 8);
+                assert_eq!(
+                    to_payload(&store.load().unwrap().workspace).unwrap(),
+                    to_payload(&metadata).unwrap()
+                );
+                let backup: Backup = serde_json::from_str(&store.backup().unwrap()).unwrap();
+                assert_eq!(
+                    to_payload(&backup.workspace).unwrap(),
+                    to_payload(&expected_live).unwrap()
+                );
+                let (revision, payload): (i64, String) = store
+                    .connection
+                    .query_row(
+                        "SELECT revision, payload FROM recovery WHERE id=19",
+                        [],
+                        |row| Ok((row.get(0)?, row.get(1)?)),
+                    )
+                    .unwrap();
+                assert_eq!(revision, 6);
+                let stored_recovery = from_document(StoredDocument {
+                    schema_version: 2,
+                    revision,
+                    payload: payload.clone(),
+                })
+                .unwrap();
+                assert_eq!(
+                    to_payload(&stored_recovery.workspace).unwrap(),
+                    to_payload(&expected_recovery).unwrap()
+                );
+                for table in ["documents", "recovery"] {
+                    let payload: String = store
+                        .connection
+                        .query_row(&format!("SELECT payload FROM {table}"), [], |row| {
+                            row.get(0)
+                        })
+                        .unwrap();
+                    for retired in ["materialChanges", "materialLookbackDays", "materialWarning"] {
+                        assert!(!payload.contains(retired));
+                    }
+                }
+                for attachment in &attachment_bytes {
+                    assert_eq!(
+                        store
+                            .attachment_bytes(std::slice::from_ref(&attachment.id))
+                            .unwrap()[0]
+                            .bytes,
+                        attachment.bytes
+                    );
+                }
+                store.acknowledge_welcome_modal(1).unwrap();
+            }
+            {
+                let mut store = Store::open(&path).unwrap();
+                assert_eq!(store.load_welcome_modal_version().unwrap(), Some(1));
+                let backup: Backup = serde_json::from_str(&store.backup().unwrap()).unwrap();
+                assert_eq!(
+                    to_payload(&backup.workspace).unwrap(),
+                    to_payload(&expected_live).unwrap()
+                );
+                store.recover(8).unwrap();
+                let backup: Backup = serde_json::from_str(&store.backup().unwrap()).unwrap();
+                assert_eq!(
+                    to_payload(&backup.workspace).unwrap(),
+                    to_payload(&expected_recovery).unwrap()
+                );
+                assert_eq!(store.load().unwrap().revision, 9);
+                assert_eq!(store.load_welcome_modal_version().unwrap(), Some(1));
+            }
+            std::fs::remove_file(path).unwrap();
+        }
+    }
+
+    #[test]
+    fn failed_preference_migration_preserves_schema_and_documents() {
+        // The transactional migration must not replace a conflicting existing table.
+        let path = std::env::temp_dir().join(format!(
+            "ankerzug-failed-welcome-{}-{}.sqlite3",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let connection = Connection::open(&path).unwrap();
+        connection.execute_batch("PRAGMA user_version=5; CREATE TABLE app_preferences (sentinel TEXT); INSERT INTO app_preferences VALUES ('preserved'); CREATE TABLE documents (payload TEXT); INSERT INTO documents VALUES ('unchanged');").unwrap();
+        drop(connection);
+        assert!(Store::open(&path).is_err());
+        let connection = Connection::open(&path).unwrap();
+        assert_eq!(
+            connection
+                .query_row("PRAGMA user_version", [], |row| row.get::<_, u32>(0))
+                .unwrap(),
+            5
+        );
+        assert_eq!(
+            connection
+                .query_row("SELECT sentinel FROM app_preferences", [], |row| row
+                    .get::<_, String>(0))
+                .unwrap(),
+            "preserved"
+        );
+        assert_eq!(
+            connection
+                .query_row("SELECT payload FROM documents", [], |row| row
+                    .get::<_, String>(0))
+                .unwrap(),
+            "unchanged"
+        );
+        drop(connection);
+        std::fs::remove_file(path).unwrap();
+    }
+
     #[test]
     fn retired_game_kind_is_reset_to_both_forms_without_resetting_new_choices() {
         let packet: serde_json::Value =
@@ -1700,7 +2055,7 @@ mod tests {
                     .connection
                     .query_row("PRAGMA user_version", [], |r| r.get::<_, u32>(0))
                     .unwrap(),
-                5
+                6
             );
         }
         std::fs::remove_file(path).unwrap();
@@ -1733,7 +2088,7 @@ mod tests {
                 .connection
                 .query_row("PRAGMA user_version", [], |row| row.get::<_, u32>(0))
                 .unwrap(),
-            5
+            6
         );
         let snapshot = restored.restore(&backup, 0).unwrap();
         assert_eq!(
@@ -1749,7 +2104,7 @@ mod tests {
     #[test]
     fn unknown_future_schema_is_not_reset() {
         let connection = Connection::open_in_memory().unwrap();
-        connection.execute_batch("PRAGMA user_version=6").unwrap();
+        connection.execute_batch("PRAGMA user_version=7").unwrap();
         assert!(Store::from_connection(connection).is_err());
     }
     #[test]

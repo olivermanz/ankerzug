@@ -2,9 +2,10 @@ import { TestBed } from '@angular/core/testing';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DataAccessService } from './data-access.service';
 import { PlannerService } from './planner.service';
-import { newCycle, newContent, basisTemplates } from './planning';
+import { newCycle, newContent } from './planning';
+import compatibilityBackup from '../../fixtures/workspace-v2.json';
 import { timelinePreview } from './timeline';
-import { SaveInput, Snapshot } from './models';
+import { Backup, SaveInput, Snapshot } from './models';
 const valid = () => {
   const c = newCycle();
   c.name = 'Saison';
@@ -42,6 +43,19 @@ describe('serialized autosave', () => {
     vi.useRealTimers();
     TestBed.resetTestingModule();
   });
+  it('loads a new workspace without seeding templates or triggering autosave', async () => {
+    access.load.mockResolvedValueOnce({
+      revision: 0,
+      workspace: { cycles: [], templates: [] },
+    });
+    await service.load();
+    expect(service.workspace().templates).toEqual([]);
+    expect(service.ready()).toBe(true);
+    expect(service.status()).toBe('saved');
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(access.save).not.toHaveBeenCalled();
+  });
+
   it('saves a timeline transformation as one aggregate, preserves session objects, and retains failed edits for retry', async () => {
     const cycle = service.workspace().cycles[0];
     service.addPhase(cycle);
@@ -140,7 +154,7 @@ describe('serialized autosave', () => {
     ];
     session.contents[1].category = 'Pause';
     session.contents[1].areas = [];
-    const template = basisTemplates()[0];
+    const template = structuredClone((compatibilityBackup as Backup).workspace.templates[0]);
     template.contents = session.contents.map((b) => ({
       ...structuredClone(b),
       id: crypto.randomUUID(),

@@ -13,6 +13,7 @@ describe('MVP UI acceptance', () => {
     load: ReturnType<typeof vi.fn>;
     save: ReturnType<typeof vi.fn>;
     backup: ReturnType<typeof vi.fn>;
+    loadWelcomeModalVersion: ReturnType<typeof vi.fn>;
   };
   async function render(): Promise<void> {
     fixture.detectChanges();
@@ -49,6 +50,7 @@ describe('MVP UI acceptance', () => {
   beforeEach(async () => {
     stored = { revision: 0, workspace: { cycles: [], templates: [] } };
     access = {
+      loadWelcomeModalVersion: vi.fn().mockResolvedValue(1),
       load: vi.fn().mockImplementation(async () => structuredClone(stored)),
       save: vi.fn().mockImplementation(async (input: SaveInput) => {
         stored = {

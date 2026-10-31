@@ -16,6 +16,17 @@ export const TAURI_INVOKER = new InjectionToken<TauriInvoker>('Tauri IPC invoker
 export class DataAccessService {
   private readonly invokeTauri = inject(TAURI_INVOKER);
 
+  openHelp(): Promise<void> {
+    return this.call('open_help');
+  }
+
+  loadWelcomeModalVersion(): Promise<number | null> {
+    return this.call('load_welcome_modal_version');
+  }
+  acknowledgeWelcomeModal(version: number): Promise<number> {
+    return this.call('acknowledge_welcome_modal', { version });
+  }
+
   readGamePackage(): Promise<GamePackage | null> {
     return this.call('read_game_package');
   }
