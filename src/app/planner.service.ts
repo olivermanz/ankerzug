@@ -81,6 +81,10 @@ export class PlannerService {
   private waiters: Array<{ resolve: () => void; reject: (error: Error) => void }> = [];
   private pendingAttachmentBytes = new Map<string, number[]>();
 
+  openHelp(): Promise<void> {
+    return this.access.openHelp();
+  }
+
   addCompetition(cycle: MacroCycle): void {
     cycle.competitions.push({
       id: id(),

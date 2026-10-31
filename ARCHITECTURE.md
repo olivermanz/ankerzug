@@ -659,3 +659,11 @@ page has one heading and a body of at most 300 characters. Progress describes
 organizational session status, and AI import describes external conversion through
 the existing import instructions rather than an embedded AI service. No dependency
 or additional native permission is required.
+
+## External help
+
+The sidebar's “Hilfe” action above “Info” calls the argument-free `open_help`
+command. Rust opens only `https://www.ankerzug.net/help` in the system browser
+using the platform handler (`start` on Windows, `open` on macOS, `xdg-open` on
+Linux). Failures appear in the existing UI notice. No arbitrary URL or process
+arguments cross IPC, and no dependency or plugin permission is added.
