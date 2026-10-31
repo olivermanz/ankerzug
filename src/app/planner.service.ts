@@ -45,7 +45,6 @@ import {
   acceptPreview,
   captureOriginalPlan,
   applyTemplate,
-  basisTemplates,
   generatePreview,
   newContent,
   nextOffset,
@@ -454,10 +453,6 @@ export class PlannerService {
       this.ready.set(true);
       this.status.set('saved');
       this.error.set('');
-      if (snapshot.revision === 0) {
-        this.workspace().templates = basisTemplates();
-        this.changed();
-      }
     } catch (e) {
       this.fail(e);
     }

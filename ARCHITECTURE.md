@@ -171,7 +171,9 @@ The workspace boundary exposes typed operations:
 - `read_game_attachments({ ids }) -> AttachmentBytes[]` for an explicit viewer or package export.
 
 `Workspace` owns macrocycles and global templates. Template navigation and editing
-are available without a selected or existing macrocycle. A macrocycle owns competitions with A/B/C priorities, its main A competition
+are available without a selected or existing macrocycle. New workspaces start
+with an empty template collection; loading does not seed templates or alter
+existing templates. A macrocycle owns competitions with A/B/C priorities, its main A competition
 reference, independent end date, periods, phases, slots, sessions, compatibility
 weekly profiles/scoped goals, proposal/warning decisions and
 generation exclusions.
