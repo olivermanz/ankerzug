@@ -11,7 +11,6 @@ import {
   dateAt,
   dayNumber,
   applyTemplate,
-  basisTemplates,
   contentWarnings,
   cycleWarnings,
   dayCount,
@@ -279,7 +278,7 @@ describe('generation and section 32 acceptance', () => {
     const c = withSlots();
     acceptPreview(c, generatePreview(c));
     const session = c.sessions[0];
-    const template = basisTemplates()[0];
+    const template = structuredClone((fixture as Backup).workspace.templates[0]);
     template.contents = [newContent(80, 15, 'Technik'), newContent(5, 10, 'Pause')];
     template.contents[1].category = 'Pause';
     template.contents[1].areas = [];
@@ -296,7 +295,7 @@ describe('generation and section 32 acceptance', () => {
     const c = withSlots();
     acceptPreview(c, generatePreview(c));
     const s = c.sessions[0];
-    const t = basisTemplates()[0];
+    const t = structuredClone((fixture as Backup).workspace.templates[0]);
     applyTemplate([s], t, 'empty');
     expect(s.contents).toHaveLength(1);
     expect(s.individuallyPlanned).toBe(false);

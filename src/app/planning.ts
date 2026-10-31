@@ -401,59 +401,6 @@ export function applyTemplate(
     session.individuallyPlanned = true;
   }
 }
-export function basisTemplates(): Template[] {
-  return [
-    {
-      id: id(),
-      name: 'Technik · 90 Minuten',
-      sessionType: 'BAT',
-      areas: ['SCHIESSTECHNIK'],
-      volume: null,
-      intensity: null,
-      competitionSpecificity: null,
-      description: 'Technik und freie Anwendung',
-      defaultDuration: 90,
-      contents: [
-        newContent(0, 30, 'Aufwärmen und Einschießen'),
-        newContent(30, 45, 'Technikschwerpunkt'),
-        newContent(75, 15, 'Freie Anwendung / Abschluss'),
-      ],
-    },
-    {
-      id: id(),
-      name: 'Wettkampfspezifisch · 120 Minuten',
-      description: 'Routine und Simulation',
-      sessionType: 'LK',
-      areas: ['WETTKAMPFMANAGEMENT'],
-      volume: null,
-      intensity: null,
-      competitionSpecificity: null,
-      defaultDuration: 120,
-      contents: [
-        newContent(0, 30, 'Aufwärmen und Einschießen'),
-        newContent(30, 15, 'Probepfeile / Wettkampfroutine'),
-        newContent(45, 60, 'Scoring / Wettkampfsimulation'),
-        newContent(105, 15, 'Abschluss / kurze Auswertung'),
-      ],
-    },
-    {
-      id: id(),
-      name: 'Leichte Einheit / Taper · 60 Minuten',
-      description: 'Qualität bei reduziertem Umfang',
-      sessionType: 'BAT',
-      areas: ['SCHIESSTECHNIK'],
-      volume: null,
-      intensity: null,
-      competitionSpecificity: null,
-      defaultDuration: 60,
-      contents: [
-        newContent(0, 20, 'Aufwärmen und Einschießen'),
-        newContent(20, 30, 'Qualitativ hochwertige Wettkampfpfeile'),
-        newContent(50, 10, 'Abschluss / Materialcheck'),
-      ],
-    },
-  ];
-}
 export function validateCycle(c: MacroCycle): string[] {
   const errors: string[] = [];
   if (!c.competitions.some((x) => x.id === c.mainCompetitionId && x.priority === 'A'))
