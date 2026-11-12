@@ -28,3 +28,25 @@
 .attachment span {
   flex: 1;
 }
+
+.game-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.game-row .game-item {
+  flex: 1;
+  min-width: 0;
+}
+.selection-actions {
+  margin-top: 16px;
+}
+dialog {
+  max-width: min(540px, calc(100vw - 40px));
+  border: 1px solid var(--green);
+  border-radius: 12px;
+  padding: 24px;
+}
+dialog::backdrop {
+  background: rgb(0 0 0 / 40%);
+}

@@ -616,6 +616,11 @@ bytes and basename only; Angular supplies fresh IDs after usability validation.
 PDF viewing uses the existing window-scoped byte contract, with per-page print
 sizes derived from the PDF dimensions instead of forcing attachment pages to A4.
 
+Game deletion removes selected games and their attachments and clears their `gameId`
+references in templates, session contents and generation baselines in one existing
+aggregate save. The blocks and all other planning/compatibility fields are retained.
+Failed saves retain the intended deletion for the normal retry workflow.
+
 ## Optional native exploration infrastructure
 
 The `exploration` Cargo feature registers an embedded loopback WebDriver server
