@@ -5,6 +5,7 @@ import {
   gamePackage,
   gameImportPreview,
   projectedGameImport,
+  workspaceBlocks,
 } from './games/games';
 import { GamePdfValidationService } from './games/attachment-validation';
 import {
@@ -521,6 +522,19 @@ export class PlannerService {
     if (errors.length) throw new Error(errors[0]);
     this.workspace().games ??= [];
     this.workspace().games!.push(structuredClone(game));
+    this.changed();
+  }
+  deleteGames(gameIds: string[]): void {
+    const ids = new Set(gameIds);
+    const workspace = this.workspace();
+    const removed = (workspace.games ?? []).filter((game) => ids.has(game.id));
+    if (!removed.length) return;
+    workspace.games = (workspace.games ?? []).filter((game) => !ids.has(game.id));
+    for (const block of workspaceBlocks(workspace)) {
+      if (block.gameId && ids.has(block.gameId)) block.gameId = null;
+    }
+    for (const game of removed)
+      for (const attachment of game.attachments) this.pendingAttachmentBytes.delete(attachment.id);
     this.changed();
   }
   async attachGamePdfs(game: Game): Promise<void> {

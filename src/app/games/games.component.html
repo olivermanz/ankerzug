@@ -19,22 +19,61 @@
   @if (busy()) {
     <p role="status">Spielaktion wird ausgeführt …</p>
   }
+  <div class="actions selection-actions">
+    <button (click)="toggleSelection()" [attr.aria-pressed]="selectionMode()" [disabled]="busy()">
+      Auswahl
+    </button>
+  </div>
   <div class="game-list">
     @for (game of planner.workspace().games ?? []; track game.id) {
-      <button
-        class="game-item"
-        [class.selected]="selectedId() === game.id"
-        (click)="open(game)"
-        [disabled]="busy()"
-      >
-        <strong>{{ game.name }}</strong
-        ><span>{{ gameForms(game) }} · {{ game.attachments.length }} PDF-Anhänge</span>
-      </button>
+      <div class="game-row">
+        @if (selectionMode()) {
+          <input
+            type="checkbox"
+            [attr.aria-label]="game.name + ' auswählen'"
+            [checked]="deletionIds().includes(game.id)"
+            (change)="toggleGame(game.id)"
+            [disabled]="busy()"
+          />
+        }
+        <button
+          class="game-item"
+          [class.selected]="selectedId() === game.id"
+          (click)="open(game)"
+          [disabled]="busy()"
+        >
+          <strong>{{ game.name }}</strong
+          ><span>{{ gameForms(game) }} · {{ game.attachments.length }} PDF-Anhänge</span>
+        </button>
+      </div>
     } @empty {
       <p>Noch keine Spiele. Lege ein Spiel an oder importiere ein Spielpaket.</p>
     }
   </div>
+  <div class="actions selection-actions">
+    <button (click)="requestDeletion()" [disabled]="busy() || !deletionIds().length">
+      Löschen
+    </button>
+  </div>
 </section>
+<dialog
+  #deleteDialog
+  aria-labelledby="delete-games-title"
+  aria-describedby="delete-games-warning"
+  (cancel)="cancelDeletion()"
+  (close)="cancelDeletion()"
+>
+  <h2 id="delete-games-title">Trainingsspiele löschen</h2>
+  <p id="delete-games-warning">Sie sind dabei, {{ deletionIds().length }} Spiele zu löschen</p>
+  <p>
+    Die Spiele und ihre PDF-Anhänge werden gelöscht. Verknüpfungen in Trainingseinheiten und
+    Vorlagen werden entfernt; die Trainingsinhalte bleiben erhalten.
+  </p>
+  <div class="actions">
+    <button autofocus (click)="cancelDeletion()">Abbrechen</button>
+    <button class="primary" (click)="confirmDeletion()">Okay</button>
+  </div>
+</dialog>
 @if (preview(); as p) {
   <section class="panel" aria-label="Spielimport-Vorschau">
     <h2>Spielimport prüfen</h2>

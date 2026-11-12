@@ -4,6 +4,7 @@ import { DataAccessService } from './data-access.service';
 import { PlannerService } from './planner.service';
 import { newCycle, newContent } from './planning';
 import compatibilityBackup from '../../fixtures/workspace-v2.json';
+import { newGame, workspaceBlocks } from './games/games';
 import { timelinePreview } from './timeline';
 import { Backup, SaveInput, Snapshot } from './models';
 const valid = () => {
@@ -43,6 +44,45 @@ describe('serialized autosave', () => {
     vi.useRealTimers();
     TestBed.resetTestingModule();
   });
+  it('deletes games and all references atomically while preserving older planning data', async () => {
+    const workspace = structuredClone((compatibilityBackup as Backup).workspace);
+    const removed = newGame(),
+      retained = newGame();
+    removed.name = 'Entfernen';
+    removed.description = 'Regeln';
+    retained.name = 'Behalten';
+    retained.description = 'Regeln';
+    service.workspace.set(workspace);
+    service.createGame(removed);
+    service.createGame(retained);
+    const blocks = workspaceBlocks(workspace);
+    expect(blocks.length).toBeGreaterThan(1);
+    for (const block of blocks) {
+      block.category = 'Spiel';
+      block.gameId = removed.id;
+    }
+    blocks[0].gameId = retained.id;
+    const session = workspace.cycles[0].sessions[0];
+    session.generationBaseline = {
+      ...structuredClone(session),
+      contents: structuredClone(session.contents),
+    };
+    const expected = structuredClone(workspace);
+    expected.games = [structuredClone(retained)];
+    for (const block of workspaceBlocks(expected))
+      if (block.gameId === removed.id) block.gameId = null;
+    access.save.mockClear();
+    service.deleteGames([removed.id]);
+    await service.settled();
+    expect(access.save).toHaveBeenCalledTimes(1);
+    expect(access.save.mock.calls[0][0].workspace).toEqual(expected);
+    expect(service.workspace()).toEqual(expected);
+    service.deleteGames([]);
+    service.deleteGames(['missing']);
+    await service.settled();
+    expect(access.save).toHaveBeenCalledTimes(1);
+  });
+
   it('loads a new workspace without seeding templates or triggering autosave', async () => {
     access.load.mockResolvedValueOnce({
       revision: 0,
