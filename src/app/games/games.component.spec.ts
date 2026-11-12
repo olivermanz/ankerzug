@@ -47,6 +47,21 @@ describe('training game UI and persistence orchestration', () => {
     await render();
   };
   beforeEach(async () => {
+    Object.defineProperty(HTMLDialogElement.prototype, 'showModal', {
+      configurable: true,
+      value: function (this: HTMLDialogElement) {
+        this.open = true;
+      },
+    });
+    Object.defineProperty(HTMLDialogElement.prototype, 'close', {
+      configurable: true,
+      value: function (this: HTMLDialogElement) {
+        if (this.open) {
+          this.open = false;
+          this.dispatchEvent(new Event('close'));
+        }
+      },
+    });
     stored = { revision: 1, workspace: { cycles: [], templates: [] } };
     access = {
       loadWelcomeModalVersion: vi.fn().mockResolvedValue(1),
@@ -82,7 +97,100 @@ describe('training game UI and persistence orchestration', () => {
   afterEach(() => {
     fixture.destroy();
     TestBed.resetTestingModule();
+    Reflect.deleteProperty(HTMLDialogElement.prototype, 'showModal');
+    Reflect.deleteProperty(HTMLDialogElement.prototype, 'close');
     vi.clearAllMocks();
+  });
+  const selectionBoxes = () =>
+    Array.from(
+      fixture.nativeElement.querySelectorAll(
+        '.game-row input[type=checkbox]',
+      ) as NodeListOf<HTMLInputElement>,
+    );
+  const deleteButton = () =>
+    Array.from(
+      fixture.nativeElement.querySelectorAll('button') as NodeListOf<HTMLButtonElement>,
+    ).find((button) => button.textContent?.trim() === 'Löschen')!;
+  const importGames = async () => {
+    for (let i = 0; i < 3; i++) {
+      await click('Spiele importieren');
+      await click('Spiele importieren bestätigen');
+    }
+  };
+  it('toggles selection, confirms only checked games and persists deletion on reload', async () => {
+    await importGames();
+    const original = structuredClone(stored.workspace.games!);
+    expect(selectionBoxes()).toHaveLength(0);
+    expect(deleteButton().disabled).toBe(true);
+    await click('Auswahl');
+    expect(selectionBoxes()).toHaveLength(3);
+    selectionBoxes()[0].click();
+    selectionBoxes()[1].click();
+    selectionBoxes()[0].click();
+    selectionBoxes()[2].click();
+    await render();
+    expect(deleteButton().disabled).toBe(false);
+    // An editor for a deleted game must close as well.
+    (fixture.nativeElement.querySelectorAll('.game-item')[1] as HTMLButtonElement).click();
+    await render();
+    await click('Löschen');
+    expect(fixture.nativeElement.querySelector('app-games dialog').open).toBe(true);
+    expect(fixture.nativeElement.querySelector('app-games dialog').textContent).toContain(
+      '2 Spiele',
+    );
+    await click('Okay');
+    expect(stored.workspace.games).toEqual([original[0]]);
+    expect(selectionBoxes()).toHaveLength(0);
+    expect(deleteButton().disabled).toBe(true);
+    expect(fixture.nativeElement.querySelector('[aria-label="Spielbearbeitung"]')).toBeNull();
+    await TestBed.inject(PlannerService).load();
+    await render();
+    expect(fixture.nativeElement.querySelectorAll('.game-item')).toHaveLength(1);
+  });
+  it('resets selection on toggle, cancel, Escape and dialog close without saving', async () => {
+    await importGames();
+    const before = structuredClone(stored);
+    access['save'].mockClear();
+    await click('Auswahl');
+    selectionBoxes()[0].click();
+    await click('Auswahl');
+    expect(selectionBoxes()).toHaveLength(0);
+    expect(deleteButton().disabled).toBe(true);
+    for (const dismissal of ['button', 'escape', 'close']) {
+      await click('Auswahl');
+      expect(selectionBoxes().every((box) => !box.checked)).toBe(true);
+      selectionBoxes()[0].click();
+      await render();
+      await click('Löschen');
+      const dialog = fixture.nativeElement.querySelector('app-games dialog') as HTMLDialogElement;
+      if (dismissal === 'button') await click('Abbrechen');
+      else if (dismissal === 'escape')
+        dialog.dispatchEvent(new Event('cancel', { cancelable: true }));
+      else dialog.close();
+      await render();
+      expect(dialog.open).toBe(false);
+      expect(selectionBoxes()).toHaveLength(0);
+      expect(deleteButton().disabled).toBe(true);
+    }
+    expect(stored).toEqual(before);
+    expect(access['save']).not.toHaveBeenCalled();
+  });
+  it('retains a failed deletion for retry and does not report success', async () => {
+    await importGames();
+    const keep = structuredClone(stored.workspace.games!.slice(1));
+    await click('Auswahl');
+    selectionBoxes()[0].click();
+    await render();
+    await click('Löschen');
+    access['save'].mockRejectedValueOnce({ code: 'storage', message: 'Disk full' });
+    await click('Okay');
+    expect(stored.workspace.games).toHaveLength(3);
+    expect(TestBed.inject(PlannerService).workspace().games).toEqual(keep);
+    expect(fixture.nativeElement.textContent).not.toContain('1 Spiele gelöscht.');
+    expect(selectionBoxes()).toHaveLength(0);
+    await click('Erneut versuchen');
+    await TestBed.inject(PlannerService).settled();
+    expect(stored.workspace.games).toEqual(keep);
   });
   it('creates games without a macrocycle, attaches/prints PDFs, exports instructions and keeps edits on reload', async () => {
     await click('＋ Spiel anlegen');

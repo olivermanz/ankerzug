@@ -1,4 +1,11 @@
-import { Component, inject, signal, ChangeDetectionStrategy } from '@angular/core';
+import {
+  Component,
+  inject,
+  signal,
+  ChangeDetectionStrategy,
+  ElementRef,
+  viewChild,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Game } from '../models';
 import { PlannerService } from '../planner.service';
@@ -13,6 +20,38 @@ import { gameForms, GAME_RATINGS, GameImportPreview, gameErrors, newGame } from 
 })
 export class GamesComponent {
   readonly planner = inject(PlannerService);
+  readonly selectionMode = signal(false);
+  readonly deletionIds = signal<string[]>([]);
+  private readonly deleteDialog = viewChild<ElementRef<HTMLDialogElement>>('deleteDialog');
+  toggleSelection(): void {
+    this.selectionMode.update((active) => !active);
+    this.deletionIds.set([]);
+  }
+  toggleGame(id: string): void {
+    this.deletionIds.update((ids) =>
+      ids.includes(id) ? ids.filter((value) => value !== id) : [...ids, id],
+    );
+  }
+  requestDeletion(): void {
+    if (!this.busy() && this.deletionIds().length) this.deleteDialog()?.nativeElement.showModal();
+  }
+  cancelDeletion(): void {
+    this.deleteDialog()?.nativeElement.close();
+    this.selectionMode.set(false);
+    this.deletionIds.set([]);
+  }
+  async confirmDeletion(): Promise<void> {
+    if (this.busy() || !this.deletionIds().length) return;
+    const ids = [...this.deletionIds()];
+    this.cancelDeletion();
+    await this.run(async () => {
+      await this.planner.settled();
+      this.planner.deleteGames(ids);
+      if (this.selectedId() && ids.includes(this.selectedId()!)) this.close();
+      await this.planner.settled();
+      this.message.set(`${ids.length} Spiele gelöscht.`);
+    });
+  }
   readonly selectedId = signal<string | null>(null);
   readonly draft = signal<Game | null>(null);
   readonly busy = signal(false);
