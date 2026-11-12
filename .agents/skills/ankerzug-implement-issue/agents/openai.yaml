@@ -1,0 +1,4 @@
+interface:
+  display_name: 'Implement Ankerzug Issues'
+  short_description: 'Implement Ankerzug issues with tests and gh-N commits'
+  default_prompt: 'Use $ankerzug-implement-issue to implement the specified Ankerzug GitHub issue, verify its acceptance criteria, and prepare a pull request.'
