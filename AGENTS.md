@@ -36,6 +36,14 @@ For template/game import changes, also read [TEMPLATE_IMPORT_FORMAT.md](TEMPLATE
 and the [game import reference](skills/ankerzug-game-import/references/GAME_IMPORT_FORMAT.md).
 Keep affected skill references and ZIP packages synchronized with their contracts.
 
+## Issue implementation skill
+
+For GitHub issue implementation, use
+[ankerzug-implement-issue](.agents/skills/ankerzug-implement-issue/SKILL.md).
+Every new issue-related commit subject must start with `gh-<issue-number>` and a
+space, for example `gh-9 Add training game deletion`. Apply the prefix to code,
+tests, documentation and follow-up fixes, including commits created through APIs.
+
 ## Specialist agent definitions
 
 Project-scoped Codex roles are defined in `.codex/agents/`:
