@@ -45,7 +45,7 @@ keys avoid relying on these compatibility behaviors.
 | `name`                   | Nonblank string                          | Source title or a concise descriptive title; use `"Importierte Trainingseinheit"` if no title is available. |
 | `description`            | string                                   | Shared training intention or introductory description. Use `""` if absent.                                  |
 | `defaultDuration`        | integer, 1–4294967295                    | Total planned minutes. Use the stated total or the sum of known block durations.                            |
-| `sessionType`            | string from the session-type list        | Choose the dominant explicitly described training type. Clarify if it cannot be determined.                 |
+| `sessionType`            | string from the session-type list        | Use the explicitly described training focus. Clarify if it cannot be determined.                            |
 | `areas`                  | array of strings from the area list      | Applicable training areas, without duplicates; `[]` if unspecified.                                         |
 | `volume`                 | integer 1–5 or `null`                    | Explicit planned volume profile; otherwise `null`.                                                          |
 | `intensity`              | integer 1–5 or `null`                    | Explicit planned intensity profile; otherwise `null`.                                                       |
@@ -125,27 +125,35 @@ areas must not be invented or translated in JSON. A pause can use `areas: []`.
 
 ## Allowed block categories
 
-These strings must retain their exact German spelling:
+Use any code from the session-type list (for example, `ET` for Elementetraining
+or `KT` for Koordinationstraining) or one of these content-only types:
 
-- `Pause`
 - `Aufwärmen`
 - `Einschießen`
-- `Technik`
-- `Volumentraining`
-- `Kraft / spezifische Kraft`
-- `Koordination`
-- `Scoring`
-- `Wettkampfsimulation`
-- `Matchplay / Duelle`
-- `Mentaltraining`
-- `Blank Bale / Scheibe ohne Wertung`
-- `Material / Tuning`
 - `Cool-down`
-- `Regeneration`
+- `Spiel`
+- `Pause`
 - `Sonstiges`
 
-An empty category (`""`) is also accepted. Do not create additional categories
-such as `"Warmup"`, `"Krafttraining"` or `"Techniktraining"`.
+An empty category (`""`) is also accepted. Use the current codes and spellings
+when creating a package. Existing packages normalize these historical values on
+import:
+
+| Historical category                     | Imported category |
+| --------------------------------------- | ----------------- |
+| Regeneration                            | `Pause`           |
+| Koordination                            | `KT`              |
+| Mentaltraining                          | `MT`              |
+| Material / Tuning                       | `M-T`             |
+| Technik                                 | `ET`              |
+| Volumentraining                         | `KNT`             |
+| Kraft / spezifische Kraft               | `KAT`             |
+| Scoring                                 | `LK`              |
+| Wettkampfsimulation, Matchplay / Duelle | `BAT-WE`          |
+| Blank Bale / Scheibe ohne Wertung       | `BAT`             |
+
+Empty and unrecognized historical strings are preserved. Do not invent new
+category values. Block categories are independent of the template focus.
 
 ## Converting a Word or other source description
 
@@ -240,7 +248,7 @@ numeric profiles are supplied. Offsets are 0, 20, 75 and 80 minutes.
           "durationMinutes": 55,
           "content": "12 Passen à 6 Pfeile.\nSaubere Ankerposition und ruhiger Nachhalteweg.",
           "material": "Bogen, Pfeile und Scheibe",
-          "category": "Technik",
+          "category": "ET",
           "areas": ["SCHIESSTECHNIK"],
           "subcategory": "",
           "plannedArrowCount": 72,

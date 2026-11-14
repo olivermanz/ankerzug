@@ -100,7 +100,7 @@ pub(crate) fn normalize_workspace_value(value: &mut serde_json::Value) {
             serde_json::to_value(default_session_type_colors()).unwrap(),
         );
     }
-    normalize_session_types(value);
+    normalize_training_types(value);
     if let Some(cycles) = value
         .get_mut("cycles")
         .and_then(serde_json::Value::as_array_mut)
@@ -236,9 +236,8 @@ pub(crate) fn normalize_workspace_value(value: &mut serde_json::Value) {
     }
 }
 
-/// Converts import-only legacy session type values before strict deserialization.
-/// Unknown strings are deliberately left in place so the typed contract rejects them.
-pub(crate) fn normalize_session_types(value: &mut serde_json::Value) {
+/// Converts historical training type values before deserialization.
+fn normalize_training_types(value: &mut serde_json::Value) {
     fn normalize_type(value: &mut serde_json::Value) {
         let Some(session_type) = value.as_str() else {
             return;
@@ -259,16 +258,42 @@ pub(crate) fn normalize_session_types(value: &mut serde_json::Value) {
         *value = serde_json::Value::String(canonical.into());
     }
 
+    fn normalize_contents(owner: &mut serde_json::Value) {
+        let Some(blocks) = owner
+            .get_mut("contents")
+            .and_then(serde_json::Value::as_array_mut)
+        else {
+            return;
+        };
+        for block in blocks {
+            let canonical = match block.get("category").and_then(serde_json::Value::as_str) {
+                Some("Regeneration") => "Pause",
+                Some("Koordination") => "KT",
+                Some("Mentaltraining") => "MT",
+                Some("Material / Tuning") => "M-T",
+                Some("Technik") => "ET",
+                Some("Volumentraining") => "KNT",
+                Some("Kraft / spezifische Kraft") => "KAT",
+                Some("Scoring") => "LK",
+                Some("Wettkampfsimulation" | "Matchplay / Duelle") => "BAT-WE",
+                Some("Blank Bale / Scheibe ohne Wertung") => "BAT",
+                _ => continue,
+            };
+            block["category"] = canonical.into();
+        }
+    }
+
+    fn normalize_owner(owner: &mut serde_json::Value) {
+        if let Some(value) = owner.get_mut("sessionType") {
+            normalize_type(value);
+        }
+        normalize_contents(owner);
+    }
+
     let normalize_session = |session: &mut serde_json::Value| {
-        if let Some(session) = session.as_object_mut() {
-            if let Some(value) = session.get_mut("sessionType") {
-                normalize_type(value);
-            }
-            if let Some(baseline) = session.get_mut("generationBaseline")
-                && let Some(value) = baseline.get_mut("sessionType")
-            {
-                normalize_type(value);
-            }
+        normalize_owner(session);
+        if let Some(baseline) = session.get_mut("generationBaseline") {
+            normalize_owner(baseline);
         }
     };
 
@@ -305,9 +330,7 @@ pub(crate) fn normalize_session_types(value: &mut serde_json::Value) {
         .and_then(serde_json::Value::as_array_mut)
     {
         for template in templates {
-            if let Some(value) = template.get_mut("sessionType") {
-                normalize_type(value);
-            }
+            normalize_owner(template);
         }
     }
 }
@@ -412,25 +435,6 @@ fn valid_session_type_colors(colors: &std::collections::BTreeMap<SessionType, St
         })
 }
 fn contents<'a>(blocks: &'a [Content], ids: &mut HashSet<&'a str>) -> Result<()> {
-    const CATEGORIES: &[&str] = &[
-        "Pause",
-        "Spiel",
-        "Aufwärmen",
-        "Einschießen",
-        "Technik",
-        "Volumentraining",
-        "Kraft / spezifische Kraft",
-        "Koordination",
-        "Scoring",
-        "Wettkampfsimulation",
-        "Matchplay / Duelle",
-        "Mentaltraining",
-        "Blank Bale / Scheibe ohne Wertung",
-        "Material / Tuning",
-        "Cool-down",
-        "Regeneration",
-        "Sonstiges",
-    ];
     for block in blocks {
         identifier(&block.id, ids)?;
         require(
@@ -449,10 +453,6 @@ fn contents<'a>(blocks: &'a [Content], ids: &mut HashSet<&'a str>) -> Result<()>
                 && block.notes.chars().count() <= 400
                 && (!block.content.trim().is_empty() || block.category == "Spiel"),
             "Ungültiger Inhaltsblock.",
-        )?;
-        require(
-            block.category.is_empty() || CATEGORIES.contains(&block.category.as_str()),
-            "Unbekannte Inhaltskategorie.",
         )?;
     }
     Ok(())
@@ -1772,6 +1772,76 @@ mod tests {
             "Pause"
         );
         assert_eq!(original.backup().unwrap(), restored.backup().unwrap());
+    }
+
+    #[test]
+    fn legacy_content_types_normalize_on_database_load_and_backup_restore() {
+        let mut backup: serde_json::Value = serde_json::from_str(FIXTURE).unwrap();
+        let template = &mut backup["workspace"]["templates"][0];
+        let source = template["contents"][0].clone();
+        let aliases = [
+            ("Regeneration", "Pause"),
+            ("Koordination", "KT"),
+            ("Mentaltraining", "MT"),
+            ("Material / Tuning", "M-T"),
+            ("Technik", "ET"),
+            ("Volumentraining", "KNT"),
+            ("Kraft / spezifische Kraft", "KAT"),
+            ("Scoring", "LK"),
+            ("Wettkampfsimulation", "BAT-WE"),
+            ("Matchplay / Duelle", "BAT-WE"),
+            ("Blank Bale / Scheibe ohne Wertung", "BAT"),
+            ("Spiel", "Spiel"),
+            ("Aufwärmen", "Aufwärmen"),
+            ("Einschießen", "Einschießen"),
+            ("Cool-down", "Cool-down"),
+            ("Pause", "Pause"),
+            ("Sonstiges", "Sonstiges"),
+            ("", ""),
+            ("Alter Typ", "Alter Typ"),
+        ];
+        let blocks: Vec<_> = aliases
+            .iter()
+            .enumerate()
+            .map(|(index, (legacy, _))| {
+                let mut block = source.clone();
+                block["id"] = format!("old-block-{index}").into();
+                block["category"] = (*legacy).into();
+                block["durationMinutes"] = (index + 1).into();
+                block["content"] = format!("Anleitung {index}").into();
+                block
+            })
+            .collect();
+        template["contents"] = blocks.clone().into();
+        let session = &mut backup["workspace"]["cycles"][0]["sessions"][0];
+        session["sessionType"] = "ET".into();
+        session["contents"][0]["category"] = "Regeneration".into();
+        let mut store = store();
+        store
+            .connection
+            .execute(
+                "INSERT INTO documents (id, schema_version, revision, payload) VALUES (1, 2, 1, ?1)",
+                [backup["workspace"].to_string()],
+            )
+            .unwrap();
+        let loaded = store.load().unwrap();
+        let restored = store.restore(&backup.to_string(), 1).unwrap();
+        let mut expected = backup["workspace"].clone();
+        expected["cycles"][0]["sessions"][0]["contents"][0]["category"] = "Pause".into();
+        for (index, (_, canonical)) in aliases.into_iter().enumerate() {
+            expected["templates"][0]["contents"][index]["category"] = canonical.into();
+        }
+        for snapshot in [loaded, restored, store.load().unwrap()] {
+            assert_eq!(serde_json::to_value(snapshot.workspace).unwrap(), expected);
+        }
+
+        let mut old: serde_json::Value =
+            serde_json::from_str(include_str!("../../fixtures/workspace-v1.json")).unwrap();
+        old["workspace"]["templates"][0]["contents"][0]["category"] = "Regeneration".into();
+        let restored = store.restore(&old.to_string(), 2).unwrap();
+        let block = &restored.workspace.templates[0].contents[0];
+        assert_eq!(block.category, "Pause");
+        assert_eq!(block.areas, vec![Area::REGENERATION]);
     }
 
     #[test]

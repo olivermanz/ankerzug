@@ -134,7 +134,7 @@
         </div>
         @if (planner.workspace().planningTemplate; as planning) {
           <section class="shared-settings session-type-colors">
-            <h3>Farben der Einheitentypen</h3>
+            <h3>Farben der Schwerpunkte</h3>
             <div class="session-type-color-grid">
               @for (type of sessionTypes; track type) {
                 <label>
@@ -398,8 +398,11 @@
                 ><label
                   >Typ<select [(ngModel)]="b.category" (ngModelChange)="changeBlockType(b)">
                     <option value="">Kein Typ</option>
+                    @if (b.category && !categories.includes(b.category)) {
+                      <option [value]="b.category" disabled>{{ b.category }}</option>
+                    }
                     @for (category of categories; track category) {
-                      <option>{{ category }}</option>
+                      <option [value]="category">{{ contentTypeLabel(category) }}</option>
                     }
                   </select></label
                 >
@@ -581,7 +584,7 @@
               </div>
               <div
                 class="mesocycle-composition"
-                [attr.aria-label]="'Einheitentypen für ' + summary.phase.name"
+                [attr.aria-label]="'Schwerpunkte für ' + summary.phase.name"
               >
                 @if (summary.segments.length) {
                   @for (segment of summary.segments; track segment.sessionType) {
@@ -629,7 +632,7 @@
               <p class="muted">Keine Mesozyklen geplant.</p>
             }
           </div>
-          <div class="session-type-legend" aria-label="Legende der Einheitentypfarben">
+          <div class="session-type-legend" aria-label="Legende der Schwerpunktfarben">
             <h3>Legende</h3>
             <ul>
               @for (type of sessionTypes; track type) {
@@ -1492,7 +1495,7 @@
                 </tbody>
               </table>
             </div>
-            <p class="muted">Einheitentyp kann später geändert werden.</p>
+            <p class="muted">Schwerpunkt kann später geändert werden.</p>
             <div class="actions">
               <button class="primary" [disabled]="!rows.length" (click)="generate()">
                 Auswahl erzeugen</button
@@ -1591,10 +1594,7 @@
             </div>
             <div class="form-grid">
               <label
-                >Einheitentyp<select
-                  [(ngModel)]="s.sessionType"
-                  (ngModelChange)="sessionChanged(s)"
-                >
+                >Schwerpunkt<select [(ngModel)]="s.sessionType" (ngModelChange)="sessionChanged(s)">
                   @for (type of sessionTypes; track type) {
                     <option [value]="type">{{ sessionTypeLabels[type] }}</option>
                   }
@@ -1634,7 +1634,71 @@
                 }
               }
             }
+            @let segments = contentComposition(s.contents);
+            <div
+              class="mesocycle-composition"
+              aria-label="Zeitliche Aufteilung der Trainingsinhalte"
+            >
+              @for (segment of segments; track segment.type) {
+                @let detail =
+                  contentTypeLabel(segment.type) +
+                  ': ' +
+                  segment.minutes +
+                  ' min (' +
+                  segment.percent +
+                  ' %)';
+                <span
+                  class="mesocycle-composition-segment"
+                  tabindex="0"
+                  [class.is-session-type-highlighted]="highlightedContentType() === segment.type"
+                  [class.is-session-type-muted]="
+                    highlightedContentType() !== null && highlightedContentType() !== segment.type
+                  "
+                  (mouseenter)="highlightedContentType.set(segment.type)"
+                  (mouseleave)="highlightedContentType.set(null)"
+                  (focus)="highlightedContentType.set(segment.type)"
+                  (blur)="highlightedContentType.set(null)"
+                  [style.flex-grow]="segment.share"
+                  [style.background-color]="contentTypeColor(segment.type)"
+                  [title]="detail"
+                  [attr.aria-label]="detail"
+                ></span>
+              } @empty {
+                <span class="mesocycle-composition-empty">Keine Inhalte geplant</span>
+              }
+            </div>
             <h3>Inhalte deiner Einheit</h3>
+            @if (segments.length) {
+              <div class="session-type-legend" aria-label="Legende der zeitlichen Aufteilung">
+                <h3>Legende</h3>
+                <ul>
+                  @for (segment of segments; track segment.type) {
+                    <li
+                      tabindex="0"
+                      [class.is-session-type-highlighted]="
+                        highlightedContentType() === segment.type
+                      "
+                      [class.is-session-type-muted]="
+                        highlightedContentType() !== null &&
+                        highlightedContentType() !== segment.type
+                      "
+                      (mouseenter)="highlightedContentType.set(segment.type)"
+                      (mouseleave)="highlightedContentType.set(null)"
+                      (focus)="highlightedContentType.set(segment.type)"
+                      (blur)="highlightedContentType.set(null)"
+                      [title]="contentTypeLabel(segment.type) + ' in der Einheit hervorheben'"
+                    >
+                      <span
+                        class="session-type-legend-swatch"
+                        [style.background-color]="contentTypeColor(segment.type)"
+                        aria-hidden="true"
+                      ></span>
+                      <span>{{ contentTypeLabel(segment.type) }}</span>
+                    </li>
+                  }
+                </ul>
+              </div>
+            }
             <p class="muted">
               Die Inhalte folgen lückenlos ab der Startzeit der Einheit. Die Startzeiten ergeben
               sich aus der Reihenfolge und Dauer der Blöcke. Pausen kannst du als eigenen Typ
@@ -1662,8 +1726,11 @@
                   ><label class="session-content-short-field"
                     >Typ<select [(ngModel)]="b.category" (ngModelChange)="changeBlockType(b, s)">
                       <option value="">Kein Typ</option>
+                      @if (b.category && !categories.includes(b.category)) {
+                        <option [value]="b.category" disabled>{{ b.category }}</option>
+                      }
                       @for (category of categories; track category) {
-                        <option>{{ category }}</option>
+                        <option [value]="category">{{ contentTypeLabel(category) }}</option>
                       }
                     </select></label
                   ><label class="wide"
@@ -1728,10 +1795,6 @@
                   </div>
                 </div>
               </article>
-            } @empty {
-              <div class="empty-inline">
-                Keine Inhalte. Der Aufwärmblock kann vollständig entfernt werden.
-              </div>
             }
             <button (click)="addContent(s)">＋ Trainingsinhalt</button>
             @for (warning of contentWarnings(s); track $index) {
@@ -1841,7 +1904,7 @@
                     }
                   </label>
                   <label data-field="sessionType">
-                    Einheitstyp
+                    Schwerpunkt
                     <select
                       name="sessionType"
                       [(ngModel)]="manualDraft.sessionType"
@@ -2042,7 +2105,7 @@
                     <th>Beginn</th>
                     <th>Dauer</th>
                     <th>Mesozyklus</th>
-                    <th>Einheitentyp</th>
+                    <th>Schwerpunkt</th>
                     <th>Status</th>
                     <th>Inhalt geplant</th>
                     <th></th>
