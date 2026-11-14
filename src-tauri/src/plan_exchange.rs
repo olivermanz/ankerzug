@@ -331,6 +331,33 @@ mod tests {
         assert!(parse_template_package(&invalid.to_string()).is_err());
     }
     #[test]
+    fn older_packages_normalize_block_types_in_templates_sessions_and_baselines() {
+        let mut templates: serde_json::Value =
+            serde_json::from_str(include_str!("../../fixtures/templates-package-v1.json")).unwrap();
+        templates["templates"][0]["contents"][0]["category"] = "Regeneration".into();
+        let parsed = parse_template_package(&templates.to_string()).unwrap();
+        assert_eq!(parsed.templates[0].contents[0].category, "Pause");
+
+        let backup: serde_json::Value =
+            serde_json::from_str(include_str!("../../fixtures/workspace-regeneration.json"))
+                .unwrap();
+        let mut macrocycle = package();
+        macrocycle["cycle"] = backup["workspace"]["cycles"][0].clone();
+        let session = &mut macrocycle["cycle"]["sessions"][0];
+        session["contents"][0]["category"] = "Regeneration".into();
+        session["generationBaseline"]["contents"][0]["category"] = "Koordination".into();
+        macrocycle["templates"][0]["contents"][0]["category"] = "Technik".into();
+        let parsed = parse_package(&macrocycle.to_string()).unwrap();
+        assert_eq!(parsed.templates[0].contents[0].category, "ET");
+        assert_eq!(parsed.cycle.sessions[0].contents[0].category, "Pause");
+        let baseline = parsed.cycle.sessions[0]
+            .generation_baseline
+            .as_ref()
+            .unwrap();
+        assert_eq!(baseline.contents[0].category, "KT");
+    }
+
+    #[test]
     fn imported_template_copies_persist_and_duplicate_ids_roll_back() {
         let packet = parse_package(&package().to_string()).unwrap();
         let path = std::env::temp_dir().join(format!(

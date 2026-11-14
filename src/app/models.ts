@@ -256,25 +256,6 @@ export const PERIOD_TYPES: Record<PeriodType, string> = {
   reduced: 'Reduziertes Training',
   other: 'Sonderzeitraum',
 };
-export const CATEGORIES = [
-  'Spiel',
-  'Pause',
-  'Aufwärmen',
-  'Einschießen',
-  'Technik',
-  'Volumentraining',
-  'Kraft / spezifische Kraft',
-  'Koordination',
-  'Scoring',
-  'Wettkampfsimulation',
-  'Matchplay / Duelle',
-  'Mentaltraining',
-  'Blank Bale / Scheibe ohne Wertung',
-  'Material / Tuning',
-  'Cool-down',
-  'Regeneration',
-  'Sonstiges',
-];
 export const WEEKDAYS = [
   'Sonntag',
   'Montag',
@@ -311,6 +292,16 @@ export const SESSION_TYPES = [
   'KAT',
 ] as const;
 export type SessionType = (typeof SESSION_TYPES)[number];
+export const OTHER_CONTENT_TYPE = 'Sonstiges';
+export const CATEGORIES: readonly string[] = [
+  ...SESSION_TYPES,
+  'Aufwärmen',
+  'Einschießen',
+  'Cool-down',
+  'Spiel',
+  'Pause',
+  OTHER_CONTENT_TYPE,
+];
 export const SELECTABLE_SESSION_TYPES = SESSION_TYPES;
 export type SessionTypeColors = Record<SessionType, string>;
 export const DEFAULT_SESSION_TYPE_COLORS: SessionTypeColors = {
@@ -538,3 +529,9 @@ export const SESSION_TYPE_LABELS: Record<SessionType, string> = {
   GT: 'GT · Grundlagentraining',
   KAT: 'KAT · Kraftausdauertraining',
 };
+
+export function contentTypeLabel(category: string): string {
+  return Object.prototype.hasOwnProperty.call(SESSION_TYPE_LABELS, category)
+    ? SESSION_TYPE_LABELS[category as SessionType]
+    : category;
+}
