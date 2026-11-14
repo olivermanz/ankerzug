@@ -5,6 +5,7 @@ import { DataAccessService } from './data-access.service';
 import { Backup, SaveInput, Snapshot, Template } from './models';
 import compatibilityBackup from '../../fixtures/workspace-v2.json';
 import { PlannerService } from './planner.service';
+import { localDate, newCycle } from './planning';
 
 describe('MVP UI acceptance', () => {
   let fixture: ComponentFixture<AppComponent>;
@@ -74,6 +75,107 @@ describe('MVP UI acceptance', () => {
     vi.restoreAllMocks();
     TestBed.resetTestingModule();
   });
+  it('creates a manual session from the empty list and retries a failed save in the same dialog', async () => {
+    const planner = fixture.componentInstance.planner;
+    const cycle = newCycle();
+    cycle.name = 'Saison';
+    cycle.competitions[0].name = 'Wettkampf';
+    planner.workspace().cycles.push(cycle);
+    fixture.componentInstance.open(cycle);
+    fixture.componentInstance.tab.set('sessions');
+    await render();
+
+    const dialog = fixture.nativeElement.querySelector(
+      '.manual-session-dialog',
+    ) as HTMLDialogElement;
+    // jsdom exposes the open property but does not implement the dialog methods.
+    Object.assign(dialog, {
+      showModal: () => (dialog.open = true),
+      close: () => (dialog.open = false),
+    });
+    await click('Trainingseinheit hinzufügen');
+    const date = dialog.querySelector<HTMLInputElement>('app-date-field input')!;
+    const type = dialog.querySelector<HTMLSelectElement>('select')!;
+    const today = localDate();
+    const expected = today >= cycle.startDate && today <= cycle.endDate ? today : cycle.startDate;
+    expect(date.value).toBe(expected.split('-').reverse().join('.'));
+    expect(type.selectedIndex).toBe(0);
+    expect(dialog.querySelector<HTMLInputElement>('[name=startTime]')!.value).toBe('');
+    expect(dialog.querySelector<HTMLInputElement>('[name=plannedDuration]')!.value).toBe('');
+    await click('Anlegen');
+    expect(dialog.querySelectorAll('[aria-invalid=true]')).toHaveLength(4);
+    expect(access.save).not.toHaveBeenCalled();
+    await fill('Name der Einheit', 'Entwurf');
+    dialog.dispatchEvent(new Event('cancel', { cancelable: true }));
+    expect(dialog.open).toBe(false);
+    expect(cycle.sessions).toEqual([]);
+
+    await click('Trainingseinheit hinzufügen');
+    expect(dialog.querySelector<HTMLInputElement>('[name=name]')!.value).toBe('');
+    await fill('Name der Einheit', 'Zusatztraining');
+    await fill('Startzeit', '18:30');
+    await fill('Geplante Dauer (Minuten)', '55.5');
+    await fill('Einheitstyp', fixture.componentInstance.sessionTypeLabels.ET);
+    date.value = '31.02.2027';
+    date.dispatchEvent(new Event('input', { bubbles: true }));
+    await click('Anlegen');
+    expect(dialog.querySelectorAll('[aria-invalid=true]')).toHaveLength(2);
+    expect(access.save).not.toHaveBeenCalled();
+
+    await fill('Geplante Dauer (Minuten)', '55');
+    date.value = '07.12.2026';
+    date.dispatchEvent(new Event('input', { bubbles: true }));
+    planner.addPeriod(cycle);
+    Object.assign(cycle.periods[0], {
+      name: 'Feiertag',
+      type: 'holiday',
+      startDate: '2026-12-07',
+      endDate: '2026-12-07',
+      trainingPolicy: 'reduced',
+      durationPercent: 50,
+    });
+    await planner.settled();
+    await render();
+    expect(dialog.textContent).toContain('außerhalb des Makrozyklus');
+    expect(dialog.textContent).toContain('Feiertag');
+    expect(type.selectedIndex).toBeGreaterThan(0);
+
+    expect(fixture.componentInstance.manualDraft).toEqual({
+      name: 'Zusatztraining',
+      date: '2026-12-07',
+      startTime: '18:30',
+      plannedDuration: 55,
+      sessionType: 'ET',
+    });
+    access.save.mockRejectedValueOnce(new Error('Test: Schreiben fehlgeschlagen'));
+    await click('Anlegen');
+    expect(dialog.open).toBe(true);
+    await vi.waitFor(() =>
+      expect(fixture.componentInstance.manualSaveError()).toContain('Schreiben fehlgeschlagen'),
+    );
+    await render();
+    expect(dialog.querySelector('[role=alert]')?.textContent).toContain('Schreiben fehlgeschlagen');
+    expect(cycle.sessions).toEqual([]);
+    expect(stored.workspace.cycles[0].sessions).toEqual([]);
+    expect(fixture.componentInstance.selectedSession()).toBeNull();
+    await click('Anlegen');
+    await vi.waitFor(() => expect(fixture.componentInstance.selectedSession()).not.toBeNull());
+    await render();
+    expect(stored.workspace.cycles[0].sessions).toHaveLength(1);
+    expect(fixture.componentInstance.selectedSession()).toMatchObject({
+      name: 'Zusatztraining',
+      date: '2026-12-07',
+      startTime: '18:30',
+      plannedDuration: 55,
+      status: 'planned',
+      sessionType: 'ET',
+      mesoCycleId: null,
+      sourceTrainingSlotId: null,
+      contents: [],
+    });
+    expect(fixture.nativeElement.textContent).toContain('Trainingseinheit löschen');
+  });
+
   it('calculates content block times from the session start time', () => {
     expect(fixture.componentInstance.timeAt('18:00', 45)).toBe('18:45');
     expect(fixture.componentInstance.timeAt('23:30', 45)).toBe('00:15 (+1 Tag)');

@@ -179,7 +179,7 @@ For each charter, cover the normal workflow, boundaries, cancellation and recove
 | Planning           | Macrocycle dates, VP1/VP2/WP/UWV/UEP proposals, multiple competitions, editable profiles                                         |
 | Scheduling         | All holiday/recovery policies, three weekly slots, exclusions, repeat generation without duplicates                              |
 | Timeline           | Boundary changes, split/merge/gap insertion, preview cancellation, preserving manual session decisions                           |
-| Sessions/templates | Warm-up removal, relative times, blocks and reordering, independent copies, template defaults                                    |
+| Sessions/templates | Manual creation, cancellation and slot coexistence, warm-up removal, relative times, blocks, template copies                     |
 | Navigation         | Calendar month/week, tables, filters, details, keyboard focus, smallest supported window, long German labels                     |
 | Autosave           | Rapid changes, invalid input correction, write feedback, restart, native close while edits are pending                           |
 | Exchange/recovery  | Native save/open cancellation and overwrite, macrocycle/template/game packages, invalid/future packages, backup/restore/recovery |

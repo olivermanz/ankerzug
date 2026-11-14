@@ -1,6 +1,6 @@
 import { workspaceBlocks } from '../games/games';
 import { Content, Game, MacroCycle, Template, Workspace, id } from '../models';
-import { validateWorkspace } from '../planning';
+import { isManualSession, manualOccurrenceKey, validateWorkspace } from '../planning';
 
 export interface MacroCyclePackage {
   kind: 'ankerzug-macrocycle';
@@ -101,14 +101,11 @@ export function importPreview(
     });
   const c = packet.cycle;
   // Match full slot IDs: identifiers may themselves contain @.
-  const slots = [...c.slots].sort((a, b) => b.id.length - a.id.length);
+  const slotIds = c.slots.map((slot) => slot.id).sort((a, b) => b.length - a.length);
   const origin = (key: string) => {
-    const slot = slots.find((slot) => key.startsWith(slot.id + '@'));
-    return slot ? ref(slot.id)! + key.slice(slot.id.length) : key;
+    const slotId = slotIds.find((id) => key.startsWith(id + '@'));
+    return slotId ? ref(slotId)! + key.slice(slotId.length) : key;
   };
-  c.sessions.forEach((session) => {
-    session.occurrenceKey = origin(session.occurrenceKey);
-  });
   c.exclusions = c.exclusions.map(origin);
   c.id = ref(c.id)!;
   c.mainCompetitionId = ref(c.mainCompetitionId)!;
@@ -132,7 +129,11 @@ export function importPreview(
     if (item.scope !== 'week') item.reference = ref(item.reference)!;
   });
   c.sessions.forEach((item) => {
-    item.id = ref(item.id)!;
+    const nextId = ref(item.id)!;
+    item.occurrenceKey = isManualSession(item)
+      ? manualOccurrenceKey(nextId)
+      : origin(item.occurrenceKey);
+    item.id = nextId;
     item.mesoCycleId = ref(item.mesoCycleId);
     item.sourceTrainingSlotId = ref(item.sourceTrainingSlotId);
     blocks(item.contents);

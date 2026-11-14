@@ -16,7 +16,7 @@ import {
   ValidationErrors,
   Validator,
 } from '@angular/forms';
-import { dateAt, dayNumber, validDate } from '../planning';
+import { dateAt, dayNumber, localDate, validDate } from '../planning';
 
 /** Presentation adapter: German input/display, unchanged ISO date-only form contract. */
 @Component({
@@ -33,7 +33,9 @@ import { dateAt, dayNumber, validDate } from '../planning';
 export class DateFieldComponent implements ControlValueAccessor, Validator {
   private static nextId = 0;
   @Input() label = 'Datum';
+  @Input() error?: string;
   @Input() required: boolean | '' = false;
+  readonly today = () => localDate();
   readonly inputId = `date-field-${++DateFieldComponent.nextId}`;
   readonly popupId = `${this.inputId}-calendar`;
   readonly weekdays = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
@@ -115,10 +117,6 @@ export class DateFieldComponent implements ControlValueAccessor, Validator {
     this.open.set(false);
     this.input?.nativeElement.focus();
   }
-  today(): string {
-    const now = new Date();
-    return `${now.getFullYear().toString().padStart(4, '0')}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}`;
-  }
   monthLabel(): string {
     return new Date(`${this.month()}-01T12:00:00Z`).toLocaleDateString('de-DE', {
       month: 'long',
@@ -156,13 +154,14 @@ export class DateFieldComponent implements ControlValueAccessor, Validator {
   canMove(direction: number): boolean {
     return !!this.shiftMonth(this.focused(), direction);
   }
+  escape(event: Event): void {
+    if (!this.open()) return;
+    event.preventDefault();
+    event.stopPropagation();
+    this.close();
+  }
   key(event: KeyboardEvent): void {
-    if (event.key === 'Escape') {
-      event.preventDefault();
-      event.stopPropagation();
-      this.close();
-      return;
-    }
+    if (event.key === 'Escape') return this.escape(event);
     let offset: number;
     switch (event.key) {
       case 'ArrowLeft':

@@ -1,6 +1,6 @@
 <label [for]="inputId"
   >{{ label }}
-  <span class="date-control" [class.invalid]="invalid()">
+  <span class="date-control" [class.invalid]="invalid() || error">
     <input
       #textInput
       [id]="inputId"
@@ -8,14 +8,14 @@
       [value]="text()"
       (input)="enter($event)"
       (blur)="blur()"
-      (keydown.escape)="open() ? close() : null"
+      (keydown.escape)="escape($event)"
       [disabled]="disabled()"
       placeholder="TT.MM.JJJJ"
       [required]="required !== false"
       autocomplete="off"
       spellcheck="false"
-      [attr.aria-invalid]="invalid()"
-      [attr.aria-describedby]="invalid() ? inputId + '-error' : inputId + '-hint'"
+      [attr.aria-invalid]="invalid() || !!error"
+      [attr.aria-describedby]="invalid() || error ? inputId + '-error' : inputId + '-hint'"
     />
   </span>
 </label>
@@ -35,10 +35,10 @@
   </svg>
 </button>
 <span class="field-hint" [id]="inputId + '-hint'">TT.MM.JJJJ</span>
-@if (invalid()) {
-  <span class="field-error" [id]="inputId + '-error'" role="status"
-    >Bitte ein gültiges Datum eingeben, z. B. 28.09.2026.</span
-  >
+@if (invalid() || error) {
+  <span class="field-error" [id]="inputId + '-error'" role="status">{{
+    error || 'Bitte ein gültiges Datum eingeben, z. B. 28.09.2026.'
+  }}</span>
 }
 @if (open()) {
   <section
