@@ -32,7 +32,17 @@ import {
   Template,
   WEEKDAYS,
 } from './models';
-import { contentWarnings, cycleWarnings, dayCount, newCycle, detailedWarnings } from './planning';
+import {
+  contentWarnings,
+  cycleWarnings,
+  dayCount,
+  newCycle,
+  detailedWarnings,
+  ManualSessionDraft,
+  manualSessionDraft,
+  manualSessionErrors,
+  manualSessionWarnings,
+} from './planning';
 import {
   timelinePreview,
   projectedTimeline,
@@ -258,6 +268,57 @@ export class AppComponent implements OnInit {
       this.tab.set('sessions');
     } catch (error) {
       this.message.set((error as Error).message);
+    }
+  }
+  manualDraft: ManualSessionDraft = {
+    name: '',
+    date: '',
+    startTime: '',
+    plannedDuration: null,
+    sessionType: null,
+  };
+  readonly savingManualSession = signal(false);
+  readonly manualSaveError = signal('');
+  manualSubmitAttempted = false;
+  readonly manualSessionWarnings = manualSessionWarnings;
+
+  openManualSession(cycle: MacroCycle, dialog: HTMLDialogElement): void {
+    this.manualDraft = manualSessionDraft(cycle);
+    this.manualSubmitAttempted = false;
+    this.manualSaveError.set('');
+    dialog.showModal();
+  }
+  cancelManualSession(dialog: HTMLDialogElement, event?: Event): void {
+    event?.preventDefault();
+    if (!this.savingManualSession()) dialog.close();
+  }
+  manualFieldErrors(): ReturnType<typeof manualSessionErrors> {
+    return this.manualSubmitAttempted ? manualSessionErrors(this.manualDraft) : {};
+  }
+  async saveManualSession(cycle: MacroCycle, dialog: HTMLDialogElement): Promise<void> {
+    if (this.savingManualSession()) return;
+    this.manualSubmitAttempted = true;
+    this.manualSaveError.set('');
+    const [firstInvalid] = Object.keys(this.manualFieldErrors());
+    if (firstInvalid) {
+      dialog
+        .querySelector(`[data-field="${firstInvalid}"]`)
+        ?.querySelector<HTMLElement>('input, select')
+        ?.focus();
+      return;
+    }
+    this.savingManualSession.set(true);
+    try {
+      const session = await this.planner.addManualSession(cycle, { ...this.manualDraft });
+      dialog.close();
+      this.preview.set(null);
+      this.regeneration.set(null);
+      this.templatePreview.set(null);
+      this.openSessionEditor(session);
+    } catch (error) {
+      this.manualSaveError.set((error as Error).message);
+    } finally {
+      this.savingManualSession.set(false);
     }
   }
   selectedSession = signal<Session | null>(null);
@@ -561,7 +622,7 @@ export class AppComponent implements OnInit {
   }
   removeSession(s: Session): void {
     const c = this.cycle();
-    if (!c || !confirm('Nur diese Trainingseinheit löschen? Ihr Slot bleibt erhalten.')) return;
+    if (!c || !confirm('Diese Trainingseinheit löschen?')) return;
     this.planner.removeSession(c, s);
     this.selectedSession.set(null);
     this.selectedSessions.delete(s.id);

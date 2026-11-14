@@ -2,7 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DataAccessService } from './data-access.service';
 import { PlannerService } from './planner.service';
-import { newCycle, newContent } from './planning';
+import { manualSessionDraft, newCycle, newContent } from './planning';
 import compatibilityBackup from '../../fixtures/workspace-v2.json';
 import { newGame, workspaceBlocks } from './games/games';
 import { timelinePreview } from './timeline';
@@ -44,6 +44,51 @@ describe('serialized autosave', () => {
     vi.useRealTimers();
     TestBed.resetTestingModule();
   });
+  it('keeps manual schedules independent from slot generation and historical exclusions', async () => {
+    const cycle = service.workspace().cycles[0];
+    service.addSlot(cycle);
+    service.addPhase(cycle);
+    const occurrence = service.preview(cycle)[0];
+    const draft = {
+      name: 'Zusatztraining',
+      date: occurrence.date,
+      startTime: occurrence.startTime,
+      plannedDuration: 75,
+      sessionType: 'ET' as const,
+    };
+    expect(manualSessionDraft(cycle, cycle.endDate).date).toBe(cycle.endDate);
+    expect(manualSessionDraft(cycle, '2030-01-01').date).toBe(cycle.startDate);
+    const manual = await service.addManualSession(cycle, draft);
+    expect(manual.mesoCycleId).toBe(cycle.mesocycles[0].id);
+
+    service.addPhase(cycle);
+    const overlapping = await service.addManualSession(cycle, draft);
+    expect(overlapping.mesoCycleId).toBeNull();
+    service.removeSession(cycle, overlapping);
+    expect(cycle.exclusions).toEqual([]);
+
+    service.generate(
+      cycle,
+      service.preview(cycle).filter((row) => row.key === occurrence.key),
+    );
+    const generated = cycle.sessions.find((session) => session.occurrenceKey === occurrence.key)!;
+    expect(cycle.sessions).toHaveLength(2);
+    expect(generated.startTime).toBe(manual.startTime);
+    const regeneration = service.regenerationPreview(cycle);
+    expect(regeneration.rows.find((row) => row.key === manual.occurrenceKey)?.choice).toBe('keep');
+    service.regenerate(cycle, regeneration);
+    expect(cycle.sessions.find((session) => session.id === manual.id)).toEqual(manual);
+
+    service.removeSlot(cycle, cycle.slots[0].id, false);
+    const detached = cycle.sessions.find((session) => session.id === generated.id)!;
+    expect(detached.sourceTrainingSlotId).toBeNull();
+    service.removeSession(cycle, detached);
+    service.removeSession(cycle, manual);
+    await service.settled();
+    expect(cycle.exclusions).toEqual([occurrence.key]);
+    expect(access.save.mock.lastCall![0].workspace.cycles[0].exclusions).toEqual([occurrence.key]);
+  });
+
   it('deletes games and all references atomically while preserving older planning data', async () => {
     const workspace = structuredClone((compatibilityBackup as Backup).workspace);
     const removed = newGame(),

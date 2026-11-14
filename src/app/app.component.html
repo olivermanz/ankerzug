@@ -1756,6 +1756,9 @@
                 <p>{{ c.sessions.length }} Einheiten · {{ selectedSessions.size }} ausgewählt</p>
               </div>
               <div class="actions">
+                <button class="primary" (click)="openManualSession(c, manualDialog)">
+                  Trainingseinheit hinzufügen
+                </button>
                 <button
                   class="danger-button"
                   [disabled]="!selectedSessions.size"
@@ -1766,6 +1769,120 @@
                 <button (click)="tab.set('slots')">Termine generieren →</button>
               </div>
             </div>
+            <dialog
+              #manualDialog
+              class="manual-session-dialog"
+              aria-labelledby="manual-session-title"
+              (cancel)="cancelManualSession(manualDialog, $event)"
+            >
+              <h2 id="manual-session-title">Trainingseinheit hinzufügen</h2>
+              <form novalidate (ngSubmit)="saveManualSession(c, manualDialog)">
+                @let errors = manualFieldErrors();
+                <fieldset class="form-grid" [disabled]="savingManualSession()">
+                  <label class="wide" data-field="name">
+                    Name der Einheit
+                    <input
+                      name="name"
+                      [(ngModel)]="manualDraft.name"
+                      [attr.aria-invalid]="!!errors.name"
+                      [attr.aria-describedby]="errors.name ? 'manual-name-error' : null"
+                      required
+                      autofocus
+                    />
+                    @if (errors.name) {
+                      <span id="manual-name-error" class="error" role="status">{{
+                        errors.name
+                      }}</span>
+                    }
+                  </label>
+                  <app-date-field
+                    data-field="date"
+                    name="date"
+                    label="Datum"
+                    [(ngModel)]="manualDraft.date"
+                    [disabled]="savingManualSession()"
+                    [error]="errors.date"
+                    required
+                  ></app-date-field>
+                  <label data-field="startTime">
+                    Startzeit
+                    <input
+                      type="time"
+                      name="startTime"
+                      [(ngModel)]="manualDraft.startTime"
+                      [attr.aria-invalid]="!!errors.startTime"
+                      [attr.aria-describedby]="errors.startTime ? 'manual-time-error' : null"
+                      required
+                    />
+                    @if (errors.startTime) {
+                      <span id="manual-time-error" class="error" role="status">{{
+                        errors.startTime
+                      }}</span>
+                    }
+                  </label>
+                  <label data-field="plannedDuration">
+                    Geplante Dauer (Minuten)
+                    <input
+                      type="number"
+                      name="plannedDuration"
+                      min="1"
+                      step="1"
+                      [(ngModel)]="manualDraft.plannedDuration"
+                      [attr.aria-invalid]="!!errors.plannedDuration"
+                      [attr.aria-describedby]="
+                        errors.plannedDuration ? 'manual-duration-error' : null
+                      "
+                      required
+                    />
+                    @if (errors.plannedDuration) {
+                      <span id="manual-duration-error" class="error" role="status">{{
+                        errors.plannedDuration
+                      }}</span>
+                    }
+                  </label>
+                  <label data-field="sessionType">
+                    Einheitstyp
+                    <select
+                      name="sessionType"
+                      [(ngModel)]="manualDraft.sessionType"
+                      [attr.aria-invalid]="!!errors.sessionType"
+                      [attr.aria-describedby]="errors.sessionType ? 'manual-type-error' : null"
+                      required
+                    >
+                      <option [ngValue]="null">Bitte wählen</option>
+                      @for (type of sessionTypes; track type) {
+                        <option [ngValue]="type">{{ sessionTypeLabels[type] }}</option>
+                      }
+                    </select>
+                    @if (errors.sessionType) {
+                      <span id="manual-type-error" class="error" role="status">{{
+                        errors.sessionType
+                      }}</span>
+                    }
+                  </label>
+                </fieldset>
+                <div aria-live="polite">
+                  @for (warning of manualSessionWarnings(c, manualDraft.date); track $index) {
+                    <p class="warning">{{ warning }}</p>
+                  }
+                </div>
+                @if (manualSaveError()) {
+                  <p class="error" role="alert">{{ manualSaveError() }}</p>
+                }
+                <div class="actions">
+                  <button
+                    type="button"
+                    (click)="cancelManualSession(manualDialog)"
+                    [disabled]="savingManualSession()"
+                  >
+                    Abbrechen
+                  </button>
+                  <button type="submit" class="primary" [disabled]="savingManualSession()">
+                    {{ savingManualSession() ? 'Wird gespeichert …' : 'Anlegen' }}
+                  </button>
+                </div>
+              </form>
+            </dialog>
             <div class="template-toolbar">
               <label
                 >Vorlage<select [(ngModel)]="templateId">
@@ -1963,8 +2080,8 @@
                   } @empty {
                     <tr>
                       <td colspan="10" class="empty-inline">
-                        Keine passenden Einheiten. Filter anpassen oder Einheiten aus Trainingsslots
-                        generieren.
+                        Keine passenden Einheiten. Filter anpassen, eine Einheit hinzufügen oder
+                        Termine aus Trainingsslots generieren.
                       </td>
                     </tr>
                   }

@@ -9,7 +9,7 @@ import { describe, expect, it } from 'vitest';
 import fixture from '../../../fixtures/workspace-v2.json';
 import { Workspace } from '../models';
 import { macroCyclePackage, importPreview, projectedImport } from './exchange';
-import { generatePreview } from '../planning';
+import { createManualSession, generatePreview, isManualSession } from '../planning';
 
 const workspace = () => structuredClone(fixture.workspace) as Workspace;
 describe('macrocycle exchange', () => {
@@ -85,6 +85,21 @@ describe('macrocycle exchange', () => {
     ).cycle;
     expect(excluded.exclusions.at(-1)).toBe(`${excluded.slots[0].id}@2026-10-15`);
     expect(generatePreview(excluded).some((x) => x.key === excluded.exclusions.at(-1))).toBe(false);
+  });
+  it('preserves manual session identity on macrocycle import', () => {
+    const w = workspace();
+    const cycle = w.cycles[0];
+    const manual = createManualSession(cycle, {
+      name: 'Zusatztraining',
+      date: cycle.startDate,
+      startTime: '18:00',
+      plannedDuration: 45,
+      sessionType: 'ET',
+    });
+    cycle.sessions.push(manual);
+    const imported = importPreview(w, macroCyclePackage(cycle, w.templates)).cycle.sessions.at(-1)!;
+    expect(imported.id).not.toBe(manual.id);
+    expect(isManualSession(imported)).toBe(true);
   });
   it('rejects stale previews, incomplete reference closure and colliding generated IDs', () => {
     const w = workspace(),

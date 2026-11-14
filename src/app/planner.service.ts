@@ -43,6 +43,9 @@ import {
 } from './models';
 import {
   contextKey,
+  createManualSession,
+  isManualSession,
+  ManualSessionDraft,
   acceptPreview,
   captureOriginalPlan,
   applyTemplate,
@@ -78,7 +81,8 @@ export class PlannerService {
   private savedVersion = 0;
   private writing = false;
   private timer?: ReturnType<typeof setTimeout>;
-  private waiters: Array<{ resolve: () => void; reject: (error: Error) => void }> = [];
+  private waiters: Array<{ version: number; resolve: () => void; reject: (error: Error) => void }> =
+    [];
   private pendingAttachmentBytes = new Map<string, number[]>();
 
   openHelp(): Promise<void> {
@@ -295,10 +299,34 @@ export class PlannerService {
     cycle.exclusions = candidate.exclusions;
     this.changed();
   }
+  async addManualSession(cycle: MacroCycle, draft: ManualSessionDraft): Promise<Session> {
+    // Retry unrelated pending edits first, then write the new session through autosave.
+    if (this.status() === 'failed') await this.flush();
+    await this.settled();
+    if (!this.workspace().cycles.includes(cycle))
+      throw new Error('Der Makrozyklus ist nicht mehr verfügbar.');
+    const session = createManualSession(cycle, draft);
+    cycle.sessions.push(session);
+    this.changed();
+    const version = this.changeVersion;
+    try {
+      await this.waitForSave(version);
+      return session;
+    } catch (error) {
+      cycle.sessions = cycle.sessions.filter((entry) => entry !== session);
+      // The failed addition is still held by the form. Leave other edits pending for retry.
+      if (this.changeVersion === version) {
+        this.changeVersion = this.savedVersion;
+        this.status.set('saved');
+        this.error.set('');
+      }
+      throw error;
+    }
+  }
   removeSession(cycle: MacroCycle, session: Session): void {
     cycle.sessions = cycle.sessions.filter((s) => s.id !== session.id);
     cycle.goals = cycle.goals.filter((g) => g.scope !== 'session' || g.reference !== session.id);
-    if (!cycle.exclusions.includes(session.occurrenceKey))
+    if (!isManualSession(session) && !cycle.exclusions.includes(session.occurrenceKey))
       cycle.exclusions.push(session.occurrenceKey);
     this.changed();
   }
@@ -497,6 +525,7 @@ export class PlannerService {
       this.savedVersion = version;
       for (const attachment of attachments) this.pendingAttachmentBytes.delete(attachment.id);
       this.status.set(this.savedVersion === this.changeVersion ? 'saved' : 'pending');
+      this.finishWaiters();
     } catch (e) {
       this.fail(e);
       this.finishWaiters(new Error(this.error()));
@@ -504,13 +533,16 @@ export class PlannerService {
       this.writing = false;
     }
     if (this.status() !== 'failed' && this.savedVersion !== this.changeVersion) await this.flush();
-    if (this.savedVersion === this.changeVersion) this.finishWaiters();
   }
   async settled(): Promise<void> {
     if (this.status() === 'failed') throw new Error(this.error());
     if (this.savedVersion === this.changeVersion && !this.writing) return;
+    await this.waitForSave(this.changeVersion);
+    if (this.savedVersion !== this.changeVersion) await this.settled();
+  }
+  private waitForSave(version: number): Promise<void> {
     return new Promise((resolve, reject) => {
-      this.waiters.push({ resolve, reject });
+      this.waiters.push({ version, resolve, reject });
       void this.flush();
     });
   }
@@ -761,10 +793,12 @@ export class PlannerService {
     this.error.set('');
   }
   private finishWaiters(error?: Error): void {
-    for (const waiter of this.waiters.splice(0)) {
+    this.waiters = this.waiters.filter((waiter) => {
       if (error) waiter.reject(error);
-      else waiter.resolve();
-    }
+      else if (waiter.version <= this.savedVersion) waiter.resolve();
+      else return true;
+      return false;
+    });
   }
   private fail(error: unknown): void {
     this.status.set('failed');

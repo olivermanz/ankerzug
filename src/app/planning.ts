@@ -5,6 +5,8 @@ import {
   MESOCYCLE_COLORS,
   AREAS,
   SESSION_TYPES,
+  PERIOD_TYPES,
+  POLICIES,
   WEEK_PROFILES,
   MAX_INTEGER,
   mainCompetition,
@@ -31,6 +33,15 @@ export function validDate(date: string): boolean {
   const time = Date.parse(date + 'T00:00:00Z');
   return Number.isFinite(time) && new Date(time).toISOString().slice(0, 10) === date;
 }
+export function localDate(now = new Date()): string {
+  const year = now.getFullYear().toString().padStart(4, '0');
+  const month = (now.getMonth() + 1).toString().padStart(2, '0');
+  const day = now.getDate().toString().padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+const containsDate = (range: { startDate: string; endDate: string }, date: string): boolean =>
+  date >= range.startDate && date <= range.endDate;
+const validTime = (time: string): boolean => /^([01]\d|2[0-3]):[0-5]\d$/.test(time);
 export const dayNumber = (date: string): number => Date.parse(date + 'T00:00:00Z') / DAY;
 export const dateAt = (day: number): string => new Date(day * DAY).toISOString().slice(0, 10);
 export const dayCount = (start: string, end: string): number =>
@@ -190,6 +201,109 @@ export function phaseProposal(cycle: MacroCycle): MesoCycle[] {
     result.filter((m) => m.type === phase.code).forEach((m, i) => (m.sequenceNumber = i + 1));
   return result;
 }
+export interface ManualSessionDraft {
+  name: string;
+  date: string;
+  startTime: string;
+  plannedDuration: number | null;
+  sessionType: SessionType | null;
+}
+
+export function manualSessionDraft(cycle: MacroCycle, today = localDate()): ManualSessionDraft {
+  return {
+    name: '',
+    date: containsDate(cycle, today) ? today : cycle.startDate,
+    startTime: '',
+    plannedDuration: null,
+    sessionType: null,
+  };
+}
+
+export function manualSessionErrors(
+  draft: ManualSessionDraft,
+): Partial<Record<keyof ManualSessionDraft, string>> {
+  const errors: Partial<Record<keyof ManualSessionDraft, string>> = {};
+  if (!draft.name.trim()) errors.name = 'Bitte einen Namen eingeben.';
+  if (!validDate(draft.date)) errors.date = 'Bitte ein gültiges Datum eingeben.';
+  if (!validTime(draft.startTime)) errors.startTime = 'Bitte eine gültige Startzeit eingeben.';
+  if (draft.plannedDuration === null || !integer(draft.plannedDuration, 1))
+    errors.plannedDuration = 'Bitte eine positive Dauer in ganzen Minuten eingeben.';
+  if (draft.sessionType === null || !SESSION_TYPES.includes(draft.sessionType))
+    errors.sessionType = 'Bitte einen Einheitstyp auswählen.';
+  return errors;
+}
+
+export function manualSessionWarnings(cycle: MacroCycle, date: string): string[] {
+  if (!validDate(date)) return [];
+  const warnings = containsDate(cycle, date) ? [] : ['Das Datum liegt außerhalb des Makrozyklus.'];
+  for (const period of cycle.periods.filter((period) => containsDate(period, date)))
+    warnings.push(
+      `${period.name} · ${PERIOD_TYPES[period.type]} · ${POLICIES[period.trainingPolicy]}`,
+    );
+  return warnings;
+}
+
+// Slot origins always contain an @date suffix. Keep manual identities in a separate namespace.
+export const manualOccurrenceKey = (sessionId: string): string => `manual:${sessionId}`;
+export const isManualSession = (session: Session): boolean =>
+  session.sourceTrainingSlotId === null &&
+  session.occurrenceKey === manualOccurrenceKey(session.id);
+
+type SessionSchedule = Pick<
+  Session,
+  'name' | 'date' | 'startTime' | 'plannedDuration' | 'sessionType' | 'mesoCycleId'
+>;
+
+function newSession(
+  id: string,
+  schedule: SessionSchedule,
+  occurrenceKey: string,
+  slotId: string | null,
+): Session {
+  return {
+    id,
+    ...schedule,
+    sourceTrainingSlotId: slotId,
+    occurrenceKey,
+    notes: '',
+    status: 'planned',
+    areas: [],
+    volume: null,
+    intensity: null,
+    competitionSpecificity: null,
+    plannedArrowCount: null,
+    actualArrowCount: null,
+    actualDuration: null,
+    subjectiveLoad: null,
+    originalPlan: null,
+    suggestionDecision: null,
+    manuallyModified: false,
+    individuallyPlanned: false,
+    reduced: false,
+    contents: [],
+  };
+}
+
+export function createManualSession(cycle: MacroCycle, draft: ManualSessionDraft): Session {
+  const errors = manualSessionErrors(draft);
+  const error = Object.values(errors)[0];
+  if (error || draft.plannedDuration === null || draft.sessionType === null) throw new Error(error);
+  const phases = cycle.mesocycles.filter((phase) => containsDate(phase, draft.date));
+  const sessionId = id();
+  return newSession(
+    sessionId,
+    {
+      ...draft,
+      name: draft.name.trim(),
+      plannedDuration: draft.plannedDuration,
+      sessionType: draft.sessionType,
+      mesoCycleId: phases.length === 1 ? phases[0].id : null,
+    },
+    manualOccurrenceKey(sessionId),
+    null,
+  );
+}
+
 export function generatePreview(cycle: MacroCycle, includeExisting = false): Occurrence[] {
   const result: Occurrence[] = [];
   if (validateCycle(cycle).length) throw new Error(validateCycle(cycle)[0]);
@@ -206,12 +320,11 @@ export function generatePreview(cycle: MacroCycle, includeExisting = false): Occ
         (slot.validUntil && date > slot.validUntil)
       )
         continue;
-      const activePeriods = cycle.periods.filter((p) => date >= p.startDate && date <= p.endDate);
-      if (slot.campOnly && !activePeriods.some((p) => p.trainingPolicy === 'camp')) continue;
+      const periods = cycle.periods.filter((p) => containsDate(p, date));
+      if (slot.campOnly && !periods.some((p) => p.trainingPolicy === 'camp')) continue;
       const key = `${slot.id}@${date}`;
       if (existing.has(key)) continue;
-      const phases = cycle.mesocycles.filter((m) => date >= m.startDate && date <= m.endDate);
-      const periods = cycle.periods.filter((p) => date >= p.startDate && date <= p.endDate);
+      const phases = cycle.mesocycles.filter((m) => containsDate(m, date));
       result.push({
         key,
         slotId: slot.id,
@@ -271,39 +384,27 @@ export function acceptPreview(cycle: MacroCycle, rows: Occurrence[]): void {
       cycle.exclusions.push(row.key);
       continue;
     }
-    const session: Session = {
-      id: id(),
-      mesoCycleId: row.mesoCycleId,
-      sourceTrainingSlotId: row.slotId,
-      occurrenceKey: row.key,
-      date: row.date,
-      startTime: row.startTime,
-      plannedDuration: row.duration,
-      name: row.slotName,
-      notes: '',
-      status: 'planned',
-      sessionType: row.sessionType,
-      areas: [],
-      volume: row.applyProfile ? row.profile.volume : null,
-      intensity: row.applyProfile ? row.profile.intensity : null,
-      competitionSpecificity: row.applyProfile ? row.profile.competitionSpecificity : null,
-      plannedArrowCount: null,
-      actualArrowCount: null,
-      actualDuration: null,
-      subjectiveLoad: null,
-      originalPlan: null,
-      suggestionDecision: null,
-      manuallyModified: false,
-      individuallyPlanned: false,
-      reduced: row.reduced,
-      contents: ['AT', 'MT', 'M-T'].includes(row.sessionType)
-        ? []
-        : [
-            Object.assign(newContent(0, 30, 'Aufwärmen und Einschießen'), {
-              areas: ['SCHIESSTECHNIK', 'ATHLETIK'] as Area[],
-            }),
-          ],
-    };
+    const session = newSession(
+      id(),
+      {
+        date: row.date,
+        startTime: row.startTime,
+        plannedDuration: row.duration,
+        name: row.slotName,
+        mesoCycleId: row.mesoCycleId,
+        sessionType: row.sessionType,
+      },
+      row.key,
+      row.slotId,
+    );
+    if (row.applyProfile) Object.assign(session, row.profile);
+    session.reduced = row.reduced;
+    if (!['AT', 'MT', 'M-T'].includes(row.sessionType))
+      session.contents.push(
+        Object.assign(newContent(0, 30, 'Aufwärmen und Einschießen'), {
+          areas: ['SCHIESSTECHNIK', 'ATHLETIK'] as Area[],
+        }),
+      );
     session.generationBaseline = generationBaseline(session);
     cycle.sessions.push(session);
     existing.add(row.key);
@@ -515,7 +616,7 @@ export function validateCycle(c: MacroCycle): string[] {
   for (const s of c.slots)
     if (
       !SESSION_TYPES.includes(s.sessionType) ||
-      !/^([01]\d|2[0-3]):[0-5]\d$/.test(s.startTime) ||
+      !validTime(s.startTime) ||
       !integer(s.defaultDuration, 1) ||
       !Number.isInteger(s.weekday) ||
       s.weekday < 0 ||
@@ -530,7 +631,7 @@ export function validateCycle(c: MacroCycle): string[] {
     if (baseline) {
       if (
         !validDate(baseline.date) ||
-        !/^([01]\d|2[0-3]):[0-5]\d$/.test(baseline.startTime) ||
+        !validTime(baseline.startTime) ||
         !integer(baseline.plannedDuration, 1) ||
         !SESSION_TYPES.includes(baseline.sessionType) ||
         typeof baseline.name !== 'string' ||
@@ -557,7 +658,7 @@ export function validateCycle(c: MacroCycle): string[] {
           !nullableInteger(s.originalPlan.arrows, 0) ||
           !integer(s.originalPlan.partialArrows))) ||
       !validDate(s.date) ||
-      !/^([01]\d|2[0-3]):[0-5]\d$/.test(s.startTime) ||
+      !validTime(s.startTime) ||
       !integer(s.plannedDuration, 1)
     )
       errors.push('Trainingseinheit: Datum, Uhrzeit und Dauer prüfen.');
