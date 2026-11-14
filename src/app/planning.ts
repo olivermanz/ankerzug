@@ -1,7 +1,6 @@
 import { gameErrors, gameReferenceErrors } from './games/games';
 import {
   GenerationBaseline,
-  CATEGORIES,
   MESOCYCLE_COLORS,
   AREAS,
   SESSION_TYPES,
@@ -229,7 +228,7 @@ export function manualSessionErrors(
   if (draft.plannedDuration === null || !integer(draft.plannedDuration, 1))
     errors.plannedDuration = 'Bitte eine positive Dauer in ganzen Minuten eingeben.';
   if (draft.sessionType === null || !SESSION_TYPES.includes(draft.sessionType))
-    errors.sessionType = 'Bitte einen Einheitstyp auswählen.';
+    errors.sessionType = 'Bitte einen Schwerpunkt auswählen.';
   return errors;
 }
 
@@ -685,7 +684,7 @@ export function validateContents(contents: Content[]): string[] {
       nullableInteger(v, 0),
     ) ||
     ![b.plannedLoad, b.actualLoad].every((v) => nullableInteger(v, 1, 5)) ||
-    (b.category && !CATEGORIES.includes(b.category))
+    typeof b.category !== 'string'
       ? ['Inhaltsblöcke benötigen Text, einen ganzzahligen Start ab 0 und eine positive Dauer.']
       : [],
   );

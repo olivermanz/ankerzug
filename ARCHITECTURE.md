@@ -425,6 +425,27 @@ Pauses have a positive planned duration and participate in timing like other
 blocks; they need no training area. Rust accepts the new category and keeps
 structural validation; timing calculations remain in Angular.
 
+## Session focus and content types
+
+The existing `sessionType` field is the session focus (Schwerpunkt). Each session
+has exactly one, chosen independently of its contents. When manually adding a
+block, the editor initializes its `category` from the current focus. It keeps
+the categories of existing, copied and template-provided blocks.
+
+Block categories comprise session type codes and the six content-only types
+listed in [TEMPLATE_IMPORT_FORMAT.md](TEMPLATE_IMPORT_FORMAT.md). SQLite reads
+(including recovery), both backup readers and template and macrocycle import
+normalize the historical aliases listed there. The same conversion applies to
+generation baselines. Empty and unknown historical strings survive editing and
+export, and structural validation still requires a string. The conversion
+preserves block order, text, durations, IDs and other fields. Storage, backup and
+exchange version numbers remain unchanged.
+
+The session editor summarizes block minutes by type using the sum of planned
+block durations as the denominator. Types shared with the mesocycle summary use
+the configured focus colors. Content-only types, empty types and unknown values
+share a gray Sonstiges segment.
+
 ## Session PDF export boundary
 
 The early requirement-30.2 slice exports one selected training session.

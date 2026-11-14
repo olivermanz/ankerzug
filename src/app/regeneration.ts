@@ -123,7 +123,7 @@ export function regenerationPreview(cycle: MacroCycle): RegenerationPreview {
       reason:
         changed || typeConflict
           ? protectedValue
-            ? 'Trainerentscheidung, Durchführungsdaten, Ziel oder fehlender Generierungsstand: bewusst beibehalten. Nur Termin und Zuordnung können übernommen werden; Inhalte und Einheitentyp bleiben erhalten.'
+            ? 'Trainerentscheidung, Durchführungsdaten, Ziel oder fehlender Generierungsstand: bewusst beibehalten. Nur Termin und Zuordnung können übernommen werden; Inhalte und Schwerpunkt bleiben erhalten.'
             : 'Automatisch erzeugte Planung wird an die Quellen angepasst.'
           : 'Bestehende Einheit bleibt unverändert.',
       choice: changed || typeConflict ? (protectedValue ? 'unresolved' : 'apply') : 'keep',

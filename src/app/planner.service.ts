@@ -337,7 +337,10 @@ export class PlannerService {
     this.changed();
   }
   addContent(session: Session): void {
-    session.contents.push(newContent(nextOffset(session.contents), 30, 'Neuer Trainingsinhalt'));
+    session.contents.push({
+      ...newContent(nextOffset(session.contents), 30, 'Neuer Trainingsinhalt'),
+      category: session.sessionType,
+    });
     this.sessionChanged(session, true);
   }
   removeContent(session: Session, index: number): void {
@@ -454,7 +457,10 @@ export class PlannerService {
     this.changed();
   }
   addTemplateContent(template: Template): void {
-    template.contents.push(newContent(nextOffset(template.contents), 30, 'Neuer Trainingsinhalt'));
+    template.contents.push({
+      ...newContent(nextOffset(template.contents), 30, 'Neuer Trainingsinhalt'),
+      category: template.sessionType,
+    });
     this.changed();
   }
   removeTemplateContent(template: Template, index: number): void {
