@@ -233,23 +233,6 @@ fn scale(value: Option<u32>) -> bool {
     value.is_none_or(|v| (1..=5).contains(&v))
 }
 fn contents<'a>(blocks: &'a [Content], ids: &mut HashSet<&'a str>) -> Result<()> {
-    const CATEGORIES: &[&str] = &[
-        "Aufwärmen",
-        "Einschießen",
-        "Technik",
-        "Volumentraining",
-        "Kraft / spezifische Kraft",
-        "Koordination",
-        "Scoring",
-        "Wettkampfsimulation",
-        "Matchplay / Duelle",
-        "Mentaltraining",
-        "Blank Bale / Scheibe ohne Wertung",
-        "Material / Tuning",
-        "Cool-down",
-        "Regeneration",
-        "Sonstiges",
-    ];
     for block in blocks {
         identifier(&block.id, ids)?;
         require(
@@ -260,10 +243,6 @@ fn contents<'a>(blocks: &'a [Content], ids: &mut HashSet<&'a str>) -> Result<()>
                     .is_some()
                 && !block.content.trim().is_empty(),
             "Ungültiger Inhaltsblock.",
-        )?;
-        require(
-            block.category.is_empty() || CATEGORIES.contains(&block.category.as_str()),
-            "Unbekannte Inhaltskategorie.",
         )?;
     }
     Ok(())

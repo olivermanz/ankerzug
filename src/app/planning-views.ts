@@ -1,4 +1,12 @@
-import { MacroCycle, MesoCycle, Session, SESSION_TYPES, SessionType } from './models';
+import {
+  Content,
+  MacroCycle,
+  MesoCycle,
+  OTHER_CONTENT_TYPE,
+  Session,
+  SESSION_TYPES,
+  SessionType,
+} from './models';
 import { dateAt, dayCount, dayNumber, mondayOf, validDate, Measure } from './planning';
 
 export const SESSION_STATUS_LABELS: Record<Session['status'], string> = {
@@ -130,6 +138,33 @@ export function mesocycleCompositions(cycle: MacroCycle): MesocycleComposition[]
         }),
       };
     });
+}
+
+export type ContentCompositionType = SessionType | typeof OTHER_CONTENT_TYPE;
+
+export function contentComposition(contents: readonly Content[]) {
+  const types = [...SESSION_TYPES, OTHER_CONTENT_TYPE] as const;
+  const totals = new Map<string, number>();
+  let total = 0;
+  for (const { category, durationMinutes } of contents) {
+    if (!Number.isFinite(durationMinutes) || durationMinutes <= 0) continue;
+    const type = types.find((type) => type === category) ?? OTHER_CONTENT_TYPE;
+    totals.set(type, (totals.get(type) ?? 0) + durationMinutes);
+    total += durationMinutes;
+  }
+  return types.flatMap((type) => {
+    const minutes = totals.get(type);
+    return minutes
+      ? [
+          {
+            type,
+            minutes,
+            share: minutes / total,
+            percent: Math.round((minutes / total) * 1000) / 10,
+          },
+        ]
+      : [];
+  });
 }
 
 export interface CalendarPhaseRibbon {

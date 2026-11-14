@@ -5,7 +5,7 @@ import { DataAccessService } from './data-access.service';
 import { Backup, SaveInput, Snapshot, Template } from './models';
 import compatibilityBackup from '../../fixtures/workspace-v2.json';
 import { PlannerService } from './planner.service';
-import { localDate, newCycle } from './planning';
+import { localDate, newContent, newCycle } from './planning';
 
 describe('MVP UI acceptance', () => {
   let fixture: ComponentFixture<AppComponent>;
@@ -75,6 +75,95 @@ describe('MVP UI acceptance', () => {
     vi.restoreAllMocks();
     TestBed.resetTestingModule();
   });
+  it('summarizes block minutes and defaults only new blocks to the current focus', async () => {
+    const app = fixture.componentInstance;
+    const cycle = structuredClone(
+      compatibilityBackup.workspace.cycles[0],
+    ) as Snapshot['workspace']['cycles'][number];
+    const session = cycle.sessions[0];
+    session.sessionType = 'ET';
+    session.plannedDuration = 90;
+    session.contents = [];
+    app.planner.workspace().cycles.push(cycle);
+    app.open(cycle);
+    app.tab.set('sessions');
+    app.openSessionEditor(session);
+    await render();
+
+    const root = fixture.nativeElement as HTMLElement;
+    const segments = () => [
+      ...root.querySelectorAll<HTMLElement>('.mesocycle-composition-segment'),
+    ];
+    expect(root.querySelector('.mesocycle-composition')?.textContent).toContain(
+      'Keine Inhalte geplant',
+    );
+    session.contents.push({ ...newContent(0, 15, 'Spiel'), category: 'Spiel' });
+    fixture.changeDetectorRef.markForCheck();
+    await render();
+    expect(segments().map((segment) => segment.title)).toEqual(['Sonstiges: 15 min (100 %)']);
+    session.contents = [];
+    fixture.changeDetectorRef.markForCheck();
+    await click('＋ Trainingsinhalt');
+    expect(session.contents[0].category).toBe('ET');
+
+    session.contents.push(
+      { ...newContent(30, 15, 'Koordination'), category: 'KT' },
+      { ...newContent(45, 10, 'Aufwärmen'), category: 'Aufwärmen' },
+      { ...newContent(55, 5, 'Pause'), category: 'Pause' },
+    );
+    fixture.changeDetectorRef.markForCheck();
+    await render();
+    expect(segments().map((segment) => segment.title)).toEqual([
+      'ET · Elementetraining: 30 min (50 %)',
+      'KT · Koordinationstraining: 15 min (25 %)',
+      'Sonstiges: 15 min (25 %)',
+    ]);
+    const legend = root.querySelectorAll('.session-type-legend li');
+    legend[1].dispatchEvent(new Event('focus'));
+    await render();
+    expect(segments()[1].classList.contains('is-session-type-highlighted')).toBe(true);
+    legend[1].dispatchEvent(new Event('blur'));
+    segments()[0].dispatchEvent(new Event('mouseenter'));
+    await render();
+    expect(legend[0].classList.contains('is-session-type-highlighted')).toBe(true);
+    segments()[0].dispatchEvent(new Event('mouseleave'));
+
+    await fill('Schwerpunkt', 'BAT');
+    await click('＋ Trainingsinhalt');
+    expect(session.contents.map((block) => block.category)).toEqual([
+      'ET',
+      'KT',
+      'Aufwärmen',
+      'Pause',
+      'BAT',
+    ]);
+    const focus = [...root.querySelectorAll('label')].find(
+      (label) => label.firstChild?.textContent?.trim() === 'Schwerpunkt',
+    )!;
+    expect([...focus.querySelectorAll('option')].map((option) => option.value)).toEqual(
+      app.sessionTypes,
+    );
+    const type = root.querySelector<HTMLSelectElement>('.content-block select')!;
+    expect([...type.options].map((option) => option.value)).toEqual(['', ...app.categories]);
+    expect([...type.options].map((option) => option.value)).toContain('Cool-down');
+    expect([...type.options].map((option) => option.value)).not.toContain('Regeneration');
+
+    session.contents[0].category = 'Alter Typ';
+    session.contents[1].category = '';
+    fixture.changeDetectorRef.markForCheck();
+    await render();
+    expect(type.selectedOptions[0].text).toBe('Alter Typ');
+    await fill('Inhalte', 'Geänderter Inhalt');
+    await fill('Dauer (Minuten)', '35', 1);
+    await fill('Dauer (Minuten)', '20', 2);
+    await app.planner.flush();
+    expect(
+      stored.workspace.cycles[0].sessions[0].contents.slice(0, 2).map((block) => block.category),
+    ).toEqual(['Alter Typ', '']);
+    await fill('Typ', 'KT');
+    expect(session.contents[0].category).toBe('KT');
+  });
+
   it('creates a manual session from the empty list and retries a failed save in the same dialog', async () => {
     const planner = fixture.componentInstance.planner;
     const cycle = newCycle();
@@ -115,7 +204,7 @@ describe('MVP UI acceptance', () => {
     await fill('Name der Einheit', 'Zusatztraining');
     await fill('Startzeit', '18:30');
     await fill('Geplante Dauer (Minuten)', '55.5');
-    await fill('Einheitstyp', fixture.componentInstance.sessionTypeLabels.ET);
+    await fill('Schwerpunkt', fixture.componentInstance.sessionTypeLabels.ET);
     date.value = '31.02.2027';
     date.dispatchEvent(new Event('input', { bubbles: true }));
     await click('Anlegen');
@@ -490,7 +579,7 @@ describe('MVP UI acceptance', () => {
       'Dauer',
       'Mesozyklus',
       'Name der Einheit',
-      'Einheitentyp',
+      'Schwerpunkt',
       'Status',
       'Inhalt geplant',
     ]) {
@@ -685,11 +774,9 @@ describe('MVP UI acceptance', () => {
     await click('Trainingsslots');
     await click('＋ Trainingsslot');
     expect(fixture.nativeElement.textContent).not.toContain('Nur im Trainingslager');
-    expect(fixture.nativeElement.textContent).not.toContain('Einheitentyp');
+    expect(fixture.nativeElement.textContent).not.toContain('Schwerpunkt');
     await click('Terminvorschau erstellen →');
-    expect(fixture.nativeElement.textContent).toContain(
-      'Einheitentyp kann später geändert werden.',
-    );
+    expect(fixture.nativeElement.textContent).toContain('Schwerpunkt kann später geändert werden.');
     await click('Auswahl erzeugen');
     const c = planner.workspace().cycles[0];
     const before = structuredClone(c);

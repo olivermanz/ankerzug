@@ -14,6 +14,8 @@ import { FormsModule } from '@angular/forms';
 import { DateFieldComponent } from './shared/date-field.component';
 import {
   CATEGORIES,
+  contentTypeLabel,
+  OTHER_CONTENT_TYPE,
   MESOCYCLE_COLORS,
   AREAS,
   SELECTABLE_SESSION_TYPES,
@@ -55,6 +57,8 @@ import { ContentPreview, previousPreview, previousSession } from './content-plan
 import { PlannerService } from './planner.service';
 import { PlanningViewsComponent } from './planning-views.component';
 import {
+  contentComposition,
+  ContentCompositionType,
   emptySessionFilters,
   filterSessions,
   mesocycleCompositions,
@@ -129,6 +133,14 @@ export class AppComponent implements OnInit {
   readonly policies = Object.entries(POLICIES);
   readonly periodTypes = Object.entries(PERIOD_TYPES);
   readonly categories = CATEGORIES;
+  readonly contentTypeLabel = contentTypeLabel;
+  readonly contentComposition = contentComposition;
+  readonly highlightedContentType = signal<ContentCompositionType | null>(null);
+  contentTypeColor(type: ContentCompositionType): string {
+    return type === OTHER_CONTENT_TYPE
+      ? '#6b7280'
+      : this.planner.workspace().sessionTypeColors![type];
+  }
   readonly detailedWarnings = detailedWarnings;
   readonly sessionTypeLabels = SESSION_TYPE_LABELS;
   readonly mesocycleCompositions = mesocycleCompositions;
