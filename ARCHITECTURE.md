@@ -288,7 +288,7 @@ permission is available.
   slots and/or set remaining duration percent. No configuration means a visible
   reduced marker. Suspended periods initially deselect rows; trainer overrides
   remain possible. Camp-only slots run in explicitly configured camp periods.
-- Session type determines the removable 30-minute archery warm-up. Pure `AT`, `MT`
+- For slot generation, session type determines the removable 30-minute archery warm-up. Pure `AT`, `MT`
   and `M-T` sessions omit it. All other canonical session types use the regular
   archery warm-up. Phase/week content
   and load suggestions require apply/dismiss decisions keyed by their context.
@@ -318,9 +318,18 @@ permission is available.
   warnings are retired by the v3-to-v4 migration described above.
   Acknowledgements store context keys, not calculated messages; unchanged context
   stays suppressed, changed context is evaluated again. Warnings never block saves.
-- Occurrence identity is the original slot ID plus date, independent of edits to
-  the generated session. Persisted exclusions prevent deleted or unchecked dates
-  being resurrected. Initial generation and unchanged regeneration are idempotent.
+- Slot occurrence identity is the original slot ID plus date, independent of edits to
+  the generated session. A manually created session uses `manual:<session ID>`
+  in the existing occurrence identity field. Manual sessions have no source slot,
+  start with empty contents, and can coexist with generated slots at the same time.
+  Their creation form defaults to today within the cycle or to the cycle start.
+  It suggests the unique mesocycle covering the date and warns about dates outside
+  the cycle and overlapping configured special periods, without changing duration.
+  Creation uses the revision-checked aggregate save. A failed save keeps the
+  input in the form and rolls back the new entry in memory so retry or cancellation
+  cannot leave a duplicate. Deleting a manual session does not add an exclusion.
+  Detached generated sessions retain their slot occurrence identity and exclusion behavior.
+- Persisted exclusions prevent deleted or unchecked slot dates from being resurrected. Initial generation and unchanged regeneration are idempotent.
   `regeneration.ts` recomputes all source occurrences, compares existing origins,
   and previews additions, updates, removals, exclusions, assignments and conflicts.
   A stale preview is rejected by comparing its source snapshot to the current cycle.
@@ -538,8 +547,9 @@ Both existing backup readers and schema version 2 remain unchanged.
 Angular constructs an import preview, assigns fresh IDs to all imported entities
 and remaps main/target competitions, default templates, session phase/slot links,
 retained slots, scoped compatibility goals and generation snapshots. Generated
-slot@date origins and exclusions follow the remapped slot IDs; historical values
-without a live reference remain historical. The preview lists collisions and ID
+slot@date origins and exclusions follow the remapped slot IDs. Manual occurrence
+identities follow the remapped session IDs. Historical slot origins without a live
+reference remain historical. The preview lists collisions and ID
 mappings. Imported cycles/templates are appended, never replace existing records.
 A stale preview fails. The existing revision-checked aggregate save commits the
 import atomically; failed writes retain the intended import for explicit retry.

@@ -301,6 +301,27 @@ p {
 .section-heading p {
   margin-bottom: 0;
 }
+.manual-session-dialog {
+  width: min(560px, calc(100vw - 40px));
+  color: var(--ink);
+  border: 1px solid var(--green);
+  border-radius: 12px;
+  padding: 24px;
+}
+.manual-session-dialog::backdrop {
+  background: rgb(0 0 0 / 40%);
+}
+.manual-session-dialog fieldset {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.manual-session-dialog fieldset label {
+  align-items: stretch;
+}
+.manual-session-dialog .actions {
+  margin-top: 16px;
+}
 .form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
