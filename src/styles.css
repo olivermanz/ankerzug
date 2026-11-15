@@ -399,9 +399,6 @@ input[type='checkbox'] {
   border: 1px solid var(--line);
   background: #edf0ed;
 }
-.session-content-composition {
-  margin-top: 16px;
-}
 .mesocycle-composition-segment {
   min-width: 0;
   cursor: help;
