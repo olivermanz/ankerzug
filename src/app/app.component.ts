@@ -1,6 +1,7 @@
 import { WelcomeComponent } from './welcome/welcome.component';
 import { gameForms } from './games/games';
 import { GamesComponent } from './games/games.component';
+import { TemplatesComponent } from './templates/templates.component';
 import { ExportsComponent } from './exports/exports.component';
 import {
   Component,
@@ -36,6 +37,7 @@ import {
 import {
   contentWarnings,
   cycleWarnings,
+  formatOffset,
   dayCount,
   newCycle,
   detailedWarnings,
@@ -69,6 +71,7 @@ import {
   imports: [
     WelcomeComponent,
     GamesComponent,
+    TemplatesComponent,
     FormsModule,
     DateFieldComponent,
     PlanningViewsComponent,
@@ -118,10 +121,9 @@ export class AppComponent implements OnInit {
       this.exportingPdf.set(false);
     }
   }
-  changeBlockType(block: Content, session?: Session): void {
+  changeBlockType(block: Content, session: Session): void {
     if (block.category !== 'Spiel') delete block.gameId;
-    if (session) this.contentChanged(session);
-    else this.planner.changed();
+    this.contentChanged(session);
   }
   readonly mesocycleColors = Object.entries(MESOCYCLE_COLORS);
   phaseOptions(c: MacroCycle): Array<[string, string]> {
@@ -332,7 +334,6 @@ export class AppComponent implements OnInit {
     }
   }
   selectedSession = signal<Session | null>(null);
-  selectedTemplate = signal<Template | null>(null);
   selectedSessions = new Set<string>();
   templatePreview = signal<{
     template: Template;
@@ -668,9 +669,6 @@ export class AppComponent implements OnInit {
   removeContent(s: Session, index: number): void {
     this.tryAction(() => this.planner.removeContent(s, index));
   }
-  move(contents: Content[], index: number, direction: number): void {
-    this.planner.moveContents(contents, index, direction, this.selectedSession());
-  }
   saveTemplate(s: Session): void {
     try {
       this.planner.saveTemplate(s, this.templateName);
@@ -733,21 +731,6 @@ export class AppComponent implements OnInit {
     if (checked) this.selectedSessions.add(s.id);
     else this.selectedSessions.delete(s.id);
   }
-  duplicateTemplate(t: Template): void {
-    this.planner.duplicateTemplate(t);
-  }
-  deleteTemplate(t: Template): void {
-    if (!confirm('Vorlage löschen? Geplante Einheiten bleiben erhalten.')) return;
-    this.planner.deleteTemplate(t);
-    this.selectedTemplate.set(null);
-    this.planner.changed();
-  }
-  addTemplateContent(t: Template): void {
-    this.planner.addTemplateContent(t);
-  }
-  removeTemplateContent(t: Template, index: number): void {
-    this.planner.removeTemplateContent(t, index);
-  }
   async backup(): Promise<void> {
     if (this.creatingBackup()) return;
     this.creatingBackup.set(true);
@@ -783,7 +766,6 @@ export class AppComponent implements OnInit {
       await this.planner.restore(text);
       this.selectedId.set(null);
       this.selectedSession.set(null);
-      this.selectedTemplate.set(null);
       this.proposal.set(null);
       this.preview.set(null);
       this.message.set('Backup wiederhergestellt.');
@@ -804,7 +786,6 @@ export class AppComponent implements OnInit {
       await this.planner.recover();
       this.selectedId.set(null);
       this.selectedSession.set(null);
-      this.selectedTemplate.set(null);
       this.proposal.set(null);
       this.preview.set(null);
       this.message.set('Vorheriger Stand wiederhergestellt.');
@@ -840,19 +821,12 @@ export class AppComponent implements OnInit {
   weekday(value: string): string {
     return WEEKDAYS[new Date(value + 'T12:00:00Z').getUTCDay()];
   }
-  offset(value: number): string {
-    return (
-      Math.floor(value / 60)
-        .toString()
-        .padStart(2, '0') +
-      ':' +
-      (value % 60).toString().padStart(2, '0')
-    );
-  }
   timeAt(startTime: string, offsetMinutes: number): string {
     const [hours, minutes] = startTime.split(':').map(Number);
     const total = hours * 60 + minutes + offsetMinutes;
     const days = Math.floor(total / (24 * 60));
-    return this.offset(total % (24 * 60)) + (days ? ` (+${days} Tag${days === 1 ? '' : 'e'})` : '');
+    return (
+      formatOffset(total % (24 * 60)) + (days ? ` (+${days} Tag${days === 1 ? '' : 'e'})` : '')
+    );
   }
 }

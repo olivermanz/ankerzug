@@ -287,157 +287,7 @@
       </section>
     }
     @if (tab() === 'templates') {
-      <section class="panel">
-        <div class="section-heading">
-          <div>
-            <h2>Gute Einheiten wiederverwenden</h2>
-            <p>
-              Vorlagen gelten für alle Makrozyklen und sind frei editierbar. Geplante Einheiten
-              behalten ihre eigene Kopie.
-            </p>
-          </div>
-        </div>
-        <div class="template-grid">
-          @for (t of planner.workspace().templates; track t.id) {
-            <article class="template-card">
-              <span class="eyebrow">{{ t.defaultDuration }} MINUTEN</span>
-              <h3>{{ t.name }}</h3>
-              <p>{{ t.contents.length }} Inhaltsblöcke</p>
-              <div class="actions">
-                <button (click)="selectedTemplate.set(t)">Bearbeiten</button
-                ><button (click)="duplicateTemplate(t)">Kopieren</button
-                ><button class="text-button danger-button" (click)="deleteTemplate(t)">
-                  Löschen
-                </button>
-              </div>
-            </article>
-          }
-        </div>
-        @if (selectedTemplate(); as t) {
-          <div class="sub-panel">
-            <div class="form-grid">
-              <label
-                >Vorlagentyp<select [(ngModel)]="t.sessionType" (ngModelChange)="planner.changed()">
-                  @for (type of sessionTypes; track type) {
-                    <option [value]="type">{{ sessionTypeLabels[type] }}</option>
-                  }
-                </select></label
-              >
-              <label
-                >Vorlagenumfang<input
-                  type="number"
-                  min="1"
-                  max="5"
-                  [(ngModel)]="t.volume"
-                  (ngModelChange)="planner.changed()" /></label
-              ><label
-                >Vorlagenintensität<input
-                  type="number"
-                  min="1"
-                  max="5"
-                  [(ngModel)]="t.intensity"
-                  (ngModelChange)="planner.changed()" /></label
-              ><label
-                >Vorlagenspezifität<input
-                  type="number"
-                  min="1"
-                  max="5"
-                  [(ngModel)]="t.competitionSpecificity"
-                  (ngModelChange)="planner.changed()"
-              /></label>
-            </div>
-            <div class="form-grid">
-              <label>Name<input [(ngModel)]="t.name" (ngModelChange)="planner.changed()" /></label
-              ><label
-                >Dauer (Minuten)<input
-                  type="number"
-                  min="1"
-                  [(ngModel)]="t.defaultDuration"
-                  (ngModelChange)="planner.changed()" /></label
-              ><label class="wide"
-                >Beschreibung<input [(ngModel)]="t.description" (ngModelChange)="planner.changed()"
-              /></label>
-            </div>
-            @for (b of t.contents; track b.id; let i = $index) {
-              <div class="sub-panel form-grid">
-                <p class="wide">Start {{ offset(b.startOffsetMinutes) }}</p>
-                <label
-                  >Dauer<input
-                    type="number"
-                    min="1"
-                    [(ngModel)]="b.durationMinutes"
-                    (ngModelChange)="planner.changed()" /></label
-                ><label class="wide"
-                  >Ziele<textarea
-                    [(ngModel)]="b.goals"
-                    maxlength="300"
-                    (ngModelChange)="planner.changed()"
-                  ></textarea></label
-                ><label class="wide"
-                  >Inhalte<textarea
-                    [(ngModel)]="b.content"
-                    rows="8"
-                    (ngModelChange)="planner.changed()"
-                  ></textarea></label
-                ><label
-                  >Material<input
-                    [(ngModel)]="b.material"
-                    (ngModelChange)="planner.changed()" /></label
-                ><label
-                  >Typ<select [(ngModel)]="b.category" (ngModelChange)="changeBlockType(b)">
-                    <option value="">Kein Typ</option>
-                    @if (b.category && !categories.includes(b.category)) {
-                      <option [value]="b.category" disabled>{{ b.category }}</option>
-                    }
-                    @for (category of categories; track category) {
-                      <option [value]="category">{{ contentTypeLabel(category) }}</option>
-                    }
-                  </select></label
-                >
-
-                @if (b.category === 'Spiel') {
-                  <label class="wide"
-                    >Spiel (optional)<select
-                      [(ngModel)]="b.gameId"
-                      (ngModelChange)="planner.changed()"
-                    >
-                      <option [ngValue]="null">Kein Spiel ausgewählt</option>
-                      @for (game of planner.workspace().games ?? []; track game.id) {
-                        <option [ngValue]="game.id">
-                          {{ game.name }} ·
-                          {{ gameForms(game) }}
-                        </option>
-                      }
-                    </select></label
-                  >
-                }
-
-                <div class="actions">
-                  <button
-                    (click)="move(t.contents, i, -1)"
-                    [disabled]="i === 0"
-                    aria-label="Vorlageninhalt nach oben"
-                  >
-                    ↑</button
-                  ><button
-                    (click)="move(t.contents, i, 1)"
-                    [disabled]="i === t.contents.length - 1"
-                    aria-label="Vorlageninhalt nach unten"
-                  >
-                    ↓</button
-                  ><button class="text-button danger-button" (click)="removeTemplateContent(t, i)">
-                    Entfernen
-                  </button>
-                </div>
-              </div>
-            }
-            <div class="actions">
-              <button (click)="addTemplateContent(t)">＋ Inhalt</button
-              ><button (click)="selectedTemplate.set(null)">Editor schließen</button>
-            </div>
-          </div>
-        }
-      </section>
+      <app-templates />
     }
     @if (
       tab() !== 'templates' &&
@@ -1738,13 +1588,13 @@
                   }
                   <div class="actions wide">
                     <button
-                      (click)="move(s.contents, i, -1)"
+                      (click)="planner.moveContents(s, i, -1)"
                       [disabled]="i === 0"
                       aria-label="Inhalt nach oben"
                     >
                       ↑</button
                     ><button
-                      (click)="move(s.contents, i, 1)"
+                      (click)="planner.moveContents(s, i, 1)"
                       [disabled]="i === s.contents.length - 1"
                       aria-label="Inhalt nach unten"
                     >

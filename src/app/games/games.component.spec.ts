@@ -193,7 +193,7 @@ describe('training game UI and persistence orchestration', () => {
     expect(stored.workspace.games).toEqual(keep);
   });
   it('creates games without a macrocycle, attaches/prints PDFs, exports instructions and keeps edits on reload', async () => {
-    await click('＋ Spiel anlegen');
+    await click('＋ Neues Spiel');
     await fill('Name', 'Ringjagd');
     await fill('Beschreibung', 'Regeln für die Gruppe');
     await click('Spiel speichern');
@@ -221,7 +221,7 @@ describe('training game UI and persistence orchestration', () => {
     expect(stored.workspace.games![0].attachments).toHaveLength(0);
   });
   it('persists each checkbox combination, rejects neither form and retains choices on reload', async () => {
-    await click('＋ Spiel anlegen');
+    await click('＋ Neues Spiel');
     await fill('Name', 'Spielformen');
     await fill('Beschreibung', 'Spielregeln');
     const checkbox = (label: string) =>

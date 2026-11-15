@@ -1036,3 +1036,50 @@ summary {
     display: none !important;
   }
 }
+
+.library-view {
+  position: relative;
+  min-height: calc(100dvh - 54px);
+  overflow: clip;
+}
+
+.library-overview[inert],
+.library-editor-leave {
+  position: absolute;
+  inset-inline: 0;
+  pointer-events: none;
+}
+
+.library-overview[inert] {
+  top: var(--overview-top, 0px);
+  visibility: hidden;
+}
+
+.library-editor-leave {
+  top: var(--editor-top, 0px);
+}
+
+.library-motion > .library-overview[inert] {
+  animation: library-overview-leave 180ms ease-in;
+}
+
+.library-motion > .library-editor-leave {
+  animation: library-editor-leave 180ms ease-in;
+}
+
+@keyframes library-overview-leave {
+  from {
+    visibility: visible;
+    transform: translateX(0);
+  }
+  to {
+    visibility: visible;
+    transform: translateX(-100%);
+  }
+}
+
+@keyframes library-editor-leave {
+  to {
+    transform: translateX(100%);
+  }
+}
