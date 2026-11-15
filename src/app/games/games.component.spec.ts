@@ -220,6 +220,18 @@ describe('training game UI and persistence orchestration', () => {
     await click('Anhang entfernen');
     expect(stored.workspace.games![0].attachments).toHaveLength(0);
   });
+  it('keeps the overview notice in place while opening and closing an editor', async () => {
+    await importGames();
+    const root = fixture.nativeElement as HTMLElement;
+    const overview = root.querySelector('.library-overview')!;
+    expect(overview.querySelector('.notice')?.textContent).toContain('1 Spiele importiert.');
+    overview.querySelector<HTMLButtonElement>('.game-item')!.click();
+    await render();
+    expect(root.querySelector('[aria-label="Spielbearbeitung"] .notice')).toBeNull();
+    expect(overview.querySelector('.notice')?.textContent).toContain('1 Spiele importiert.');
+    await click('← Zurück');
+    expect(overview.querySelector('.notice')?.textContent).toContain('1 Spiele importiert.');
+  });
   it('persists each checkbox combination, rejects neither form and retains choices on reload', async () => {
     await click('＋ Neues Spiel');
     await fill('Name', 'Spielformen');
