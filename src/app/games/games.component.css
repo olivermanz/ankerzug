@@ -10,10 +10,6 @@
   gap: 12px;
   flex-wrap: wrap;
 }
-.game-item.selected {
-  border-color: var(--green);
-  background: #f0f5f1;
-}
 .game-item strong,
 .attachment span {
   overflow-wrap: anywhere;

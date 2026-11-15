@@ -5,7 +5,8 @@ import { DataAccessService } from './data-access.service';
 import { Backup, SaveInput, Snapshot, Template } from './models';
 import compatibilityBackup from '../../fixtures/workspace-v2.json';
 import { PlannerService } from './planner.service';
-import { localDate, newContent, newCycle } from './planning';
+import { localDate, newContent, newCycle, newTemplate } from './planning';
+import { newGame } from './games/games';
 
 describe('MVP UI acceptance', () => {
   let fixture: ComponentFixture<AppComponent>;
@@ -25,7 +26,7 @@ describe('MVP UI acceptance', () => {
     await render();
     const button = [
       ...(fixture.nativeElement.querySelectorAll('button') as NodeListOf<HTMLButtonElement>),
-    ].find((b) => b.textContent?.trim() === text);
+    ].find((b) => !b.closest('[inert]') && b.textContent?.trim() === text);
     expect(button, `Button ${text}`).toBeDefined();
     button!.click();
     await render();
@@ -34,7 +35,7 @@ describe('MVP UI acceptance', () => {
     await render();
     const labels = [
       ...(fixture.nativeElement.querySelectorAll('label') as NodeListOf<HTMLLabelElement>),
-    ].filter((l) => l.firstChild?.textContent?.trim() === label);
+    ].filter((l) => !l.closest('[inert]') && l.firstChild?.textContent?.trim() === label);
     const input = labels[index]?.querySelector('input,textarea,select') as HTMLInputElement;
     expect(input, `Input ${label}`).toBeTruthy();
     input.value =
@@ -355,7 +356,7 @@ describe('MVP UI acceptance', () => {
     await fill('Name', 'Globale Testvorlage');
     await planner.settled();
     await planner.load();
-    fixture.componentInstance.selectedTemplate.set(null);
+    await click('← Zurück');
     await render();
     expect(root.textContent).toContain('Globale Testvorlage');
     expect(stored.workspace.cycles).toHaveLength(0);
@@ -366,6 +367,117 @@ describe('MVP UI acceptance', () => {
     await click('Löschen');
     await planner.settled();
     expect(stored.workspace.templates).toHaveLength(templateCount);
+  });
+  describe.each([
+    { tab: 'Trainingsspiele', collection: 'games', entity: 'Spiel', newLabel: 'Neues Spiel' },
+    { tab: 'Vorlagen', collection: 'templates', entity: 'Vorlage', newLabel: 'Neue Vorlage' },
+  ] as const)('$tab library navigation', ({ tab, collection, entity, newLabel }) => {
+    async function loadLongOverview(): Promise<void> {
+      stored.workspace.games = Array.from({ length: 48 }, (_, i) => ({
+        ...newGame(),
+        name: `Spiel ${i + 1}`,
+        description: 'Spielregeln',
+      }));
+      stored.workspace.templates = Array.from({ length: 48 }, (_, i) => ({
+        ...newTemplate(),
+        name: `Vorlage ${i + 1}`,
+      }));
+      await fixture.componentInstance.planner.load();
+      await click(tab);
+    }
+
+    it.each([false, true])(
+      'restores the long overview, scroll and focus with reduced motion %s',
+      async (reducedMotion) => {
+        // jsdom has no layout/scrolling or system media preferences.
+        vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({ matches: reducedMotion }));
+        try {
+          const scrollTo = vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
+          vi.spyOn(window, 'scrollY', 'get').mockReturnValue(1250);
+          await loadLongOverview();
+          const root = fixture.nativeElement as HTMLElement;
+          const overview = root.querySelector('.library-overview')!;
+          const trigger = overview.querySelectorAll<HTMLButtonElement>(
+            collection === 'games' ? '.game-item' : '.template-card button:first-child',
+          )[40];
+          if (collection === 'games') {
+            await click('Auswahl');
+            const checkbox = overview.querySelector<HTMLInputElement>('.game-row input')!;
+            checkbox.click();
+            await render();
+          }
+          const url = location.href;
+          const historyLength = history.length;
+          trigger.focus();
+          trigger.click();
+          await render();
+          expect(overview.hasAttribute('inert')).toBe(true);
+          expect(root.querySelector('.library-motion') !== null).toBe(!reducedMotion);
+          expect(document.activeElement?.textContent?.trim()).toBe(`${entity} bearbeiten`);
+          expect(scrollTo).toHaveBeenLastCalledWith({ top: 0, behavior: 'instant' });
+          expect(root.querySelector('.sidebar button.active')?.textContent?.trim()).toBe(tab);
+
+          await click('← Zurück');
+          expect(root.querySelector('.library-overview')).toBe(overview);
+          expect(overview.hasAttribute('inert')).toBe(false);
+          expect(scrollTo).toHaveBeenLastCalledWith({ top: 1250, behavior: 'instant' });
+          expect(document.activeElement).toBe(trigger);
+          expect(location.href).toBe(url);
+          expect(history.length).toBe(historyLength);
+          if (collection === 'games')
+            expect(overview.querySelector<HTMLInputElement>('.game-row input')?.checked).toBe(true);
+        } finally {
+          vi.unstubAllGlobals();
+        }
+      },
+    );
+
+    it('discards drafts, saves explicitly, stays in the editor and returns before autosave finishes', async () => {
+      vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
+      await loadLongOverview();
+      const root = fixture.nativeElement as HTMLElement;
+      const planner = fixture.componentInstance.planner;
+      await click(`＋ ${newLabel}`);
+      await fill('Name', 'Verworfener Entwurf');
+      if (collection === 'templates') await click('＋ Inhalt');
+      await click('← Zurück');
+      expect(window.confirm).not.toHaveBeenCalled();
+      expect(access.save).not.toHaveBeenCalled();
+
+      await click(`＋ ${newLabel}`);
+      const editor = root
+        .querySelector('section:not([inert]) [data-library-editor-title]')!
+        .closest('section')!;
+      const nameInput = Array.from(editor.querySelectorAll('label'))
+        .find((label) => label.firstChild?.textContent?.trim() === 'Name')!
+        .querySelector('input')!;
+      expect(nameInput.value).toBe('');
+      await click(`${entity} speichern`);
+      expect(access.save).not.toHaveBeenCalled();
+      await fill('Name', 'Neuer Eintrag');
+      if (collection === 'games') await fill('Beschreibung', 'Regeln');
+      else await click('＋ Inhalt');
+      expect(access.save).not.toHaveBeenCalled();
+      await click(`${entity} speichern`);
+      await planner.settled();
+      expect(stored.workspace[collection]).toHaveLength(49);
+      expect(stored.workspace[collection]?.at(-1)?.name).toBe('Neuer Eintrag');
+      expect(root.querySelector('[data-library-editor-title]')?.textContent?.trim()).toBe(
+        `${entity} bearbeiten`,
+      );
+
+      access.save.mockRejectedValueOnce(new Error('Test-Speicherfehler'));
+      await fill('Name', 'Automatisch gespeichert');
+      await click('← Zurück');
+      expect(root.querySelector('.library-overview')?.hasAttribute('inert')).toBe(false);
+      await planner.flush();
+      await render();
+      expect(root.querySelector('[role="alert"]')?.textContent).toContain('Test-Speicherfehler');
+      await click('Erneut versuchen');
+      await planner.settled();
+      expect(stored.workspace[collection]?.at(-1)?.name).toBe('Automatisch gespeichert');
+      expect(stored.workspace[collection]).toHaveLength(49);
+    });
   });
   it('edits persisted global session-type colors in settings', async () => {
     fixture.componentInstance.tab.set('planning-template');
