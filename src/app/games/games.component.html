@@ -7,8 +7,8 @@
         <p>Spielideen sammeln, vorbereiten und im Training einsetzen.</p>
       </div>
     </div>
-    @if (message() && !selected()) {
-      <div class="notice" role="status">{{ message() }}</div>
+    @if (overviewMessage()) {
+      <div class="notice" role="status">{{ overviewMessage() }}</div>
     }
     <section class="panel" aria-label="Spielverwaltung">
       <div class="actions">
@@ -114,8 +114,8 @@
         </h1>
         <button (click)="close()" [disabled]="busy()">← Zurück</button>
       </div>
-      @if (message()) {
-        <div class="notice" role="status">{{ message() }}</div>
+      @if (editorMessage()) {
+        <div class="notice" role="status">{{ editorMessage() }}</div>
       }
       <div class="form-grid">
         <label

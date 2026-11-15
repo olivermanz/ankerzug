@@ -5,6 +5,7 @@ import {
   ChangeDetectionStrategy,
   ElementRef,
   viewChild,
+  WritableSignal,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { LibraryViewDirective } from '../shared/library-view.directive';
@@ -45,18 +46,19 @@ export class GamesComponent {
     if (this.busy() || !this.deletionIds().length) return;
     const ids = [...this.deletionIds()];
     this.cancelDeletion();
-    await this.run(async () => {
+    await this.run(async (message) => {
       await this.planner.settled();
       this.planner.deleteGames(ids);
       await this.planner.settled();
-      this.message.set(`${ids.length} Spiele gelöscht.`);
+      message.set(`${ids.length} Spiele gelöscht.`);
     });
   }
   private readonly view = viewChild.required(LibraryViewDirective);
   readonly selectedId = signal<string | null>(null);
   readonly draft = signal<Game | null>(null);
   readonly busy = signal(false);
-  readonly message = signal('');
+  readonly overviewMessage = signal('');
+  readonly editorMessage = signal('');
   readonly preview = signal<GameImportPreview | null>(null);
   readonly gameForms = gameForms;
   readonly ratings = GAME_RATINGS;
@@ -72,13 +74,13 @@ export class GamesComponent {
     this.view().open(trigger);
     this.selectedId.set(null);
     this.draft.set(newGame());
-    this.message.set('');
+    this.editorMessage.set('');
   }
   open(game: Game, trigger: HTMLButtonElement): void {
     this.view().open(trigger);
     this.draft.set(null);
     this.selectedId.set(game.id);
-    this.message.set('');
+    this.editorMessage.set('');
   }
   close(): void {
     this.view().back();
@@ -88,14 +90,15 @@ export class GamesComponent {
   changed(): void {
     if (!this.draft()) this.planner.changed();
   }
-  private async run(action: () => Promise<void>): Promise<void> {
+  private async run(action: (message: WritableSignal<string>) => Promise<void>): Promise<void> {
     if (this.busy()) return;
     this.busy.set(true);
-    this.message.set('');
+    const message = this.selected() ? this.editorMessage : this.overviewMessage;
+    message.set('');
     try {
-      await action();
+      await action(message);
     } catch (e) {
-      this.message.set((e as Error).message || 'Spiel konnte nicht gespeichert werden.');
+      message.set((e as Error).message || 'Spiel konnte nicht gespeichert werden.');
     } finally {
       this.busy.set(false);
     }
@@ -103,14 +106,14 @@ export class GamesComponent {
   async saveDraft(): Promise<void> {
     const game = this.draft();
     if (!game) return;
-    await this.run(async () => {
+    await this.run(async (message) => {
       const errors = gameErrors([game]);
       if (errors.length) throw new Error(errors[0]);
       this.planner.createGame(game);
       this.draft.set(null);
       this.selectedId.set(game.id);
       await this.planner.settled();
-      this.message.set('Spiel lokal gespeichert.');
+      message.set('Spiel lokal gespeichert.');
     });
   }
   async attach(game: Game): Promise<void> {
@@ -132,34 +135,34 @@ export class GamesComponent {
     });
   }
   async pdf(game: Game): Promise<void> {
-    await this.run(async () => {
+    await this.run(async (message) => {
       await this.planner.exportGamePdf(game);
-      this.message.set('Spielanleitung im PDF-Viewer geöffnet.');
+      message.set('Spielanleitung im PDF-Viewer geöffnet.');
     });
   }
   async export(ids: string[]): Promise<void> {
-    await this.run(async () => {
+    await this.run(async (message) => {
       const path = await this.planner.exportGames(ids);
-      this.message.set(path ? 'Spielpaket gespeichert: ' + path : 'Export abgebrochen.');
+      message.set(path ? 'Spielpaket gespeichert: ' + path : 'Export abgebrochen.');
     });
   }
   allIds(): string[] {
     return (this.planner.workspace().games ?? []).map((g) => g.id);
   }
   async openImport(): Promise<void> {
-    await this.run(async () => {
+    await this.run(async (message) => {
       this.preview.set(null);
       const preview = await this.planner.previewGameImport();
       this.preview.set(preview);
-      if (!preview) this.message.set('Import abgebrochen.');
+      if (!preview) message.set('Import abgebrochen.');
     });
   }
   async acceptImport(preview: GameImportPreview): Promise<void> {
-    await this.run(async () => {
+    await this.run(async (message) => {
       // Consume the preview once; failed persistence retains the same aggregate for Retry.
       this.preview.set(null);
       await this.planner.importGames(preview);
-      this.message.set(`${preview.games.length} Spiele importiert.`);
+      message.set(`${preview.games.length} Spiele importiert.`);
     });
   }
 }
