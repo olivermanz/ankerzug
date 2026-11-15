@@ -346,18 +346,6 @@
                   (ngModelChange)="planner.changed()"
               /></label>
             </div>
-            <fieldset>
-              <legend>Vorlagenbereiche</legend>
-              @for (area of areas; track area) {
-                <label
-                  ><input
-                    type="checkbox"
-                    [ngModel]="t.areas.includes(area)"
-                    (ngModelChange)="planner.toggleArea(t.areas, area)"
-                  />{{ area }}</label
-                >
-              }
-            </fieldset>
             <div class="form-grid">
               <label>Name<input [(ngModel)]="t.name" (ngModelChange)="planner.changed()" /></label
               ><label
@@ -423,18 +411,6 @@
                     </select></label
                   >
                 }
-                <fieldset class="wide">
-                  <legend>Bereiche des Vorlagenblocks</legend>
-                  @for (area of areas; track area) {
-                    <label
-                      ><input
-                        type="checkbox"
-                        [ngModel]="b.areas.includes(area)"
-                        (ngModelChange)="planner.toggleArea(b.areas, area)"
-                      />{{ area }}</label
-                    >
-                  }
-                </fieldset>
 
                 <div class="actions">
                   <button
@@ -851,13 +827,6 @@
                     type="number"
                     min="1"
                     [(ngModel)]="c.planning.loadRiseWeeks"
-                    (ngModelChange)="changed()"
-                /></label>
-                <label
-                  >Athletik/Erholung Rückblick (Tage)<input
-                    type="number"
-                    min="1"
-                    [(ngModel)]="c.planning.recoveryLookbackDays"
                     (ngModelChange)="changed()"
                 /></label>
                 <label
@@ -1609,18 +1578,6 @@
                 </select></label
               >
             </div>
-            <fieldset>
-              <legend>Trainingsbereiche</legend>
-              @for (area of areas; track area) {
-                <label
-                  ><input
-                    type="checkbox"
-                    [ngModel]="s.areas.includes(area)"
-                    (ngModelChange)="planner.toggleArea(s.areas, area); sessionChanged(s)"
-                  />{{ area }}</label
-                >
-              }
-            </fieldset>
             @if (!s.individuallyPlanned) {
               @if (previousSession(c, s); as previous) {
                 @if (previous.contents.length) {

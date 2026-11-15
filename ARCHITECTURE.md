@@ -292,8 +292,8 @@ permission is available.
   and `M-T` sessions omit it. All other canonical session types use the regular
   archery warm-up. Phase/week content
   and load suggestions require apply/dismiss decisions keyed by their context.
-  Opening a session does not change it. Blocks support multiple stable domain
-  areas and preserve ambiguous legacy categories as text for trainer review.
+  Opening a session does not change it. Historical block categories follow the
+  content type conversion described below.
 - Historical mesocycle `defaultTemplateId` values remain compatibility data in
   older v2 documents and both backup readers without a schema-version change.
   They are neither edited nor applied to sessions. Previous-session reuse copies
@@ -304,11 +304,11 @@ permission is available.
 - Monday weeks aggregate each session once. Explicit session arrow counts take
   precedence; otherwise only complete block sums are totals. Incomplete block
   values contribute visible partial sums with session coverage. Moved origins
-  are omitted; cancelled plans remain visible. Session areas are non-additive
-  counts. Target summaries use current planned values and never multiply them by
+  are omitted; cancelled plans remain visible. Target summaries use current
+  planned values and never multiply them by
   group membership. Legacy measurement/snapshot handling remains compatibility
   behavior in unchanged code, not an obligation for new planning views.
-- Templates copy type, areas, planned load and block planning values with new
+- Templates copy type, planned load, block planning values and retained compatibility data with new
   IDs and independent arrays. Organizational appointment status survives template
   application; superseded stored fields follow the existing compatibility rules.
 - Structured goals are retained only for compatibility; no goal CRUD or display
@@ -422,7 +422,7 @@ order, durations and compatibility data. Template application also derives conse
 offsets. Historical snapshot offsets are derived metadata under this rule.
 The existing category contract adds `Pause`, displayed in the block type selector.
 Pauses have a positive planned duration and participate in timing like other
-blocks; they need no training area. Rust accepts the new category and keeps
+blocks. Rust accepts the new category and keeps
 structural validation; timing calculations remain in Angular.
 
 ## Session focus and content types
@@ -440,6 +440,13 @@ generation baselines. Empty and unknown historical strings survive editing and
 export, and structural validation still requires a string. The conversion
 preserves block order, text, durations, IDs and other fields. Storage, backup and
 exchange version numbers remain unchanged.
+
+Training areas are retired from session, content and template planning.
+Newly authored records initialize `areas` to an empty array. Older assignments
+remain compatibility data on disk, in copies, in both backup formats and in
+template and macrocycle exchange, including in generation baselines. They feed
+neither focus, content types, planning warnings nor summary counts. The former
+area warning's `recoveryLookbackDays` setting remains compatibility data.
 
 The session editor summarizes block minutes by type using the sum of planned
 block durations as the denominator. Types shared with the mesocycle summary use

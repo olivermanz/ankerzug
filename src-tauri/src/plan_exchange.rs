@@ -331,6 +331,17 @@ mod tests {
         assert!(parse_template_package(&invalid.to_string()).is_err());
     }
     #[test]
+    fn template_import_keeps_legacy_areas_independent_of_focus_and_content_type() {
+        let mut package: serde_json::Value =
+            serde_json::from_str(include_str!("../../fixtures/templates-package-v1.json")).unwrap();
+        let template = &mut package["templates"][0];
+        template["areas"] = serde_json::json!(["REGENERATION"]);
+        template["contents"][0]["areas"] = serde_json::json!(["ATHLETIK"]);
+        let imported = parse_template_package(&package.to_string()).unwrap();
+        assert_eq!(serde_json::to_value(imported).unwrap(), package);
+    }
+
+    #[test]
     fn older_packages_normalize_block_types_in_templates_sessions_and_baselines() {
         let mut templates: serde_json::Value =
             serde_json::from_str(include_str!("../../fixtures/templates-package-v1.json")).unwrap();
