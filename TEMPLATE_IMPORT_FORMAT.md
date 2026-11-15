@@ -46,7 +46,7 @@ keys avoid relying on these compatibility behaviors.
 | `description`            | string                                   | Shared training intention or introductory description. Use `""` if absent.                                  |
 | `defaultDuration`        | integer, 1–4294967295                    | Total planned minutes. Use the stated total or the sum of known block durations.                            |
 | `sessionType`            | string from the session-type list        | Use the explicitly described training focus. Clarify if it cannot be determined.                            |
-| `areas`                  | array of strings from the area list      | Applicable training areas, without duplicates; `[]` if unspecified.                                         |
+| `areas`                  | array of strings from the area list      | Retired compatibility field. Emit `[]` for new templates.                                                   |
 | `volume`                 | integer 1–5 or `null`                    | Explicit planned volume profile; otherwise `null`.                                                          |
 | `intensity`              | integer 1–5 or `null`                    | Explicit planned intensity profile; otherwise `null`.                                                       |
 | `competitionSpecificity` | integer 1–5 or `null`                    | Explicit planned competition-specificity profile; otherwise `null`.                                         |
@@ -68,7 +68,7 @@ Do not reuse the example IDs across multiple templates.
 | `content`            | Nonblank string                          | Exercise instructions, repetitions, intended topics and trainer decisions. Preserve source language and meaningful line breaks. |
 | `material`           | string                                   | Equipment needed for the block; `""` if unspecified.                                                                            |
 | `category`           | string from the category list, or `""`   | Choose the closest documented category. Use `"Sonstiges"` or `""` if none fits.                                                 |
-| `areas`              | array of strings from the area list      | No duplicates; `[]` if unspecified.                                                                                             |
+| `areas`              | array of strings from the area list      | Retired compatibility field. Emit `[]` for new blocks.                                                                          |
 | `subcategory`        | string                                   | Source subcategory if supplied; otherwise `""`.                                                                                 |
 | `plannedArrowCount`  | integer 0–4294967295 or `null`           | Explicit planned total for this block, or an unambiguous calculation from the instructions; otherwise `null`.                   |
 | `actualArrowCount`   | `null` for new conversions               | Compatibility field. Do not populate measurements or results.                                                                   |
@@ -112,9 +112,9 @@ before validation: `technique` to `BAT`, `volume` to `GT`, `bowStrength` to
 to `LK`, `athletic` and `recovery` to `AT`, `mental` to `MT`, and `material` to
 `M-T`. Unknown values are rejected.
 
-## Allowed areas
+## Historical area values
 
-The same list applies to template and block `areas`:
+Older templates and blocks can contain these values in `areas`:
 
 - `SCHIESSTECHNIK`
 - `ATHLETIK`
@@ -124,8 +124,9 @@ The same list applies to template and block `areas`:
 - `REGENERATION`
 - `DIAGNOSTIK`
 
-More than one area is allowed; areas need not be mutually exclusive. Unknown
-areas must not be invented or translated in JSON. A pause can use `areas: []`.
+Existing arrays may contain multiple distinct values. Ankerzug preserves these
+assignments for exchange compatibility. They have no effect on template focus
+or block types. Emit `areas: []` when converting a new source.
 
 ## Allowed block categories
 
@@ -224,7 +225,7 @@ numeric profiles are supplied. Offsets are 0, 20, 75 and 80 minutes.
       "description": "90-minütige Techniktrainingseinheit.",
       "defaultDuration": 90,
       "sessionType": "BAT",
-      "areas": ["SCHIESSTECHNIK", "ATHLETIK", "REGENERATION"],
+      "areas": [],
       "volume": null,
       "intensity": null,
       "competitionSpecificity": null,
@@ -236,7 +237,7 @@ numeric profiles are supplied. Offsets are 0, 20, 75 and 80 minutes.
           "content": "Aufwärmen mit Theraband.",
           "material": "Theraband",
           "category": "Aufwärmen",
-          "areas": ["ATHLETIK"],
+          "areas": [],
           "subcategory": "",
           "plannedArrowCount": null,
           "actualArrowCount": null,
@@ -253,7 +254,7 @@ numeric profiles are supplied. Offsets are 0, 20, 75 and 80 minutes.
           "content": "12 Passen à 6 Pfeile.\nSaubere Ankerposition und ruhiger Nachhalteweg.",
           "material": "Bogen, Pfeile und Scheibe",
           "category": "ET",
-          "areas": ["SCHIESSTECHNIK"],
+          "areas": [],
           "subcategory": "",
           "plannedArrowCount": 72,
           "actualArrowCount": null,
@@ -287,7 +288,7 @@ numeric profiles are supplied. Offsets are 0, 20, 75 and 80 minutes.
           "content": "Cool-down und lockeres Dehnen.",
           "material": "",
           "category": "Cool-down",
-          "areas": ["REGENERATION"],
+          "areas": [],
           "subcategory": "",
           "plannedArrowCount": null,
           "actualArrowCount": null,
@@ -324,6 +325,7 @@ Use this request together with this document and the session source:
 - Total duration is given or derived from known block durations; discrepancies
   are disclosed rather than silently repaired.
 - Source text and material are preserved; generated measurement fields are null.
+- New templates and blocks use empty `areas` arrays.
 - The JSON file parses, contains no wrapper prose and is at most 20 MiB.
 
 ## Maintenance references

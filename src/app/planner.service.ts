@@ -26,7 +26,6 @@ import {
   AppError,
   mainCompetition,
   Competition,
-  Area,
   Content,
   id,
   MacroCycle,
@@ -112,12 +111,6 @@ export class PlannerService {
     cycle.competitions = cycle.competitions.filter((c) => c.id !== competition.id);
     for (const phase of cycle.mesocycles)
       if (phase.targetCompetitionId === competition.id) phase.targetCompetitionId = null;
-    this.changed();
-  }
-  toggleArea(areas: Area[], area: Area): void {
-    const index = areas.indexOf(area);
-    if (index < 0) areas.push(area);
-    else areas.splice(index, 1);
     this.changed();
   }
   acknowledgeWarning(cycle: MacroCycle, context: string): void {

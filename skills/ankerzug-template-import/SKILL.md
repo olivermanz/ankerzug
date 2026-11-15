@@ -54,7 +54,8 @@ conversion; do not reconstruct the schema from memory.
   Unknown quantities are not zero. Derive planned arrow totals only from explicit,
   unambiguous instructions. Do not convert arrow totals or qualitative adjectives
   into numeric volume, intensity, specificity or load profiles.
-- For new conversions, set `actualArrowCount`, `actualDuration` and `actualLoad`
+- For new conversions, set `areas` to `[]` on every template and block.
+  Set `actualArrowCount`, `actualDuration` and `actualLoad`
   to `null`. Preserve shared planning instructions rather than introducing
   individual results or performance evaluation. If the task is to exchange an
   existing Ankerzug package unchanged, retain its existing compatibility fields.

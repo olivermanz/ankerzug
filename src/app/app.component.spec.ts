@@ -75,6 +75,51 @@ describe('MVP UI acceptance', () => {
     vi.restoreAllMocks();
     TestBed.resetTestingModule();
   });
+  it('hides legacy training areas and preserves them on unrelated edits', async () => {
+    const app = fixture.componentInstance;
+    const workspace = structuredClone(compatibilityBackup.workspace) as Snapshot['workspace'];
+    const legacySession = workspace.cycles[0].sessions[0];
+    legacySession.areas = ['REGENERATION'];
+    legacySession.contents[0].areas = ['ATHLETIK'];
+    workspace.templates[0].areas = ['MENTAL'];
+    stored = { revision: 1, workspace };
+    await app.planner.load();
+
+    const cycle = app.planner.workspace().cycles[0];
+    const session = cycle.sessions[0];
+    const template = app.planner.workspace().templates[0];
+    const root = fixture.nativeElement as HTMLElement;
+    app.open(cycle);
+    app.tab.set('sessions');
+    app.openSessionEditor(session);
+    await render();
+    expect(root.textContent).not.toMatch(/Trainingsbereiche|Bestandskategorie|REGENERATION/);
+    await fill('Inhalte', 'Gemeinsame Schussroutine');
+    await click('Vorlagen');
+    await click('Bearbeiten');
+    expect(root.textContent).not.toMatch(
+      /Vorlagenbereiche|Bereiche des Vorlagenblocks|SCHIESSTECHNIK/,
+    );
+    await fill('Inhalte', 'Schussfolge gemeinsam üben');
+    await app.planner.flush();
+
+    expect(stored.workspace.cycles[0].sessions[0]).toMatchObject({
+      areas: ['REGENERATION'],
+      sessionType: 'BAT',
+      contents: [
+        { areas: ['ATHLETIK'], category: 'Aufwärmen', content: 'Gemeinsame Schussroutine' },
+      ],
+    });
+    expect(stored.workspace.templates[0]).toMatchObject({
+      id: template.id,
+      areas: ['MENTAL'],
+      sessionType: 'BAT',
+      contents: [
+        { areas: ['SCHIESSTECHNIK'], category: 'ET', content: 'Schussfolge gemeinsam üben' },
+      ],
+    });
+  });
+
   it('summarizes block minutes and defaults only new blocks to the current focus', async () => {
     const app = fixture.componentInstance;
     const cycle = structuredClone(

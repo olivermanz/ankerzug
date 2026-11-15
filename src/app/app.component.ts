@@ -17,7 +17,6 @@ import {
   contentTypeLabel,
   OTHER_CONTENT_TYPE,
   MESOCYCLE_COLORS,
-  AREAS,
   SELECTABLE_SESSION_TYPES,
   SESSION_TYPE_LABELS,
   mainCompetition,
@@ -161,7 +160,6 @@ export class AppComponent implements OnInit {
     mainCompetition(c).date = value;
     this.targetDateChanged(c, previous);
   }
-  readonly areas = AREAS;
   readonly sessionTypes = SELECTABLE_SESSION_TYPES;
   readonly mainCompetition = mainCompetition;
   readonly previousSession = previousSession;
