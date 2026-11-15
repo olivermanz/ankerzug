@@ -78,6 +78,29 @@ export function newCycle(planning = defaultPlanning()): MacroCycle {
     exclusions: [],
   };
 }
+export function newTemplate(): Template {
+  return {
+    id: id(),
+    name: '',
+    description: '',
+    sessionType: 'BAT',
+    defaultDuration: 60,
+    areas: [],
+    volume: null,
+    intensity: null,
+    competitionSpecificity: null,
+    contents: [],
+  };
+}
+
+export function formatOffset(value: number): string {
+  const hours = Math.floor(value / 60)
+    .toString()
+    .padStart(2, '0');
+  const minutes = (value % 60).toString().padStart(2, '0');
+  return hours + ':' + minutes;
+}
+
 export function newContent(start = 0, duration = 30, text = ''): Content {
   return {
     id: id(),

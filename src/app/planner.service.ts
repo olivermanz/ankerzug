@@ -51,6 +51,7 @@ import {
   generatePreview,
   newContent,
   nextOffset,
+  sequenceContents,
   sequenceWorkspace,
   phaseProposal,
   validateCycle,
@@ -346,17 +347,13 @@ export class PlannerService {
     session.contents.splice(index, 1);
     this.sessionChanged(session, true);
   }
-  moveContents(
-    contents: Content[],
-    index: number,
-    direction: number,
-    session: Session | null,
-  ): void {
+  moveContents(owner: Session | Template, index: number, direction: number): void {
+    const { contents } = owner;
     const target = index + direction;
     if (target < 0 || target >= contents.length) return;
     [contents[index], contents[target]] = [contents[target], contents[index]];
-    if (session) this.sessionChanged(session, true);
-    else this.changed();
+    if ('defaultDuration' in owner) this.templateChanged(owner);
+    else this.sessionChanged(owner, true);
   }
   saveTemplate(session: Session, name: string): void {
     if (!name.trim()) throw new Error('Bitte einen Vorlagennamen eingeben.');
@@ -433,6 +430,19 @@ export class PlannerService {
       );
     this.changed();
   }
+  createTemplate(template: Template): void {
+    const errors = validateWorkspace({
+      ...this.workspace(),
+      templates: [...this.workspace().templates, template],
+    });
+    if (errors.length) throw new Error(errors[0]);
+    this.workspace().templates.push(structuredClone(template));
+    this.changed();
+  }
+  templateChanged(template: Template): void {
+    if (this.workspace().templates.includes(template)) this.changed();
+    else sequenceContents(template.contents);
+  }
   duplicateTemplate(template: Template): void {
     this.workspace().templates.push({
       ...structuredClone(template),
@@ -454,11 +464,11 @@ export class PlannerService {
       ...newContent(nextOffset(template.contents), 30, 'Neuer Trainingsinhalt'),
       category: template.sessionType,
     });
-    this.changed();
+    this.templateChanged(template);
   }
   removeTemplateContent(template: Template, index: number): void {
     template.contents.splice(index, 1);
-    this.changed();
+    this.templateChanged(template);
   }
 
   async load(): Promise<void> {

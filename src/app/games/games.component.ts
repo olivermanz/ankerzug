@@ -7,13 +7,14 @@ import {
   viewChild,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { LibraryViewDirective } from '../shared/library-view.directive';
 import { Game } from '../models';
 import { PlannerService } from '../planner.service';
 import { gameForms, GAME_RATINGS, GameImportPreview, gameErrors, newGame } from './games';
 @Component({
   selector: 'app-games',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, LibraryViewDirective],
   templateUrl: './games.component.html',
   changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './games.component.css',
@@ -47,11 +48,11 @@ export class GamesComponent {
     await this.run(async () => {
       await this.planner.settled();
       this.planner.deleteGames(ids);
-      if (this.selectedId() && ids.includes(this.selectedId()!)) this.close();
       await this.planner.settled();
       this.message.set(`${ids.length} Spiele gelöscht.`);
     });
   }
+  private readonly view = viewChild.required(LibraryViewDirective);
   readonly selectedId = signal<string | null>(null);
   readonly draft = signal<Game | null>(null);
   readonly busy = signal(false);
@@ -67,17 +68,20 @@ export class GamesComponent {
       null
     );
   }
-  create(): void {
+  create(trigger: HTMLButtonElement): void {
+    this.view().open(trigger);
     this.selectedId.set(null);
     this.draft.set(newGame());
     this.message.set('');
   }
-  open(game: Game): void {
+  open(game: Game, trigger: HTMLButtonElement): void {
+    this.view().open(trigger);
     this.draft.set(null);
     this.selectedId.set(game.id);
     this.message.set('');
   }
   close(): void {
+    this.view().back();
     this.draft.set(null);
     this.selectedId.set(null);
   }

@@ -251,7 +251,7 @@ describe('serialized autosave', () => {
     session.contents[0].durationMinutes = 45;
     service.sessionChanged(session, true);
     expect(session.contents.map((b) => b.startOffsetMinutes)).toEqual([0, 45, 55]);
-    service.moveContents(session.contents, 2, -1, session);
+    service.moveContents(session, 2, -1);
     expect(session.contents.map((b) => b.startOffsetMinutes)).toEqual([0, 45, 65]);
     service.removeContent(session, 0);
     expect(session.contents.map((b) => b.startOffsetMinutes)).toEqual([0, 20]);
@@ -260,7 +260,7 @@ describe('serialized autosave', () => {
     template.contents[0].durationMinutes = 15;
     service.changed();
     expect(template.contents.map((b) => b.startOffsetMinutes)).toEqual([0, 15, 25]);
-    service.moveContents(template.contents, 1, -1, null);
+    service.moveContents(template, 1, -1);
     expect(template.contents.map((b) => b.startOffsetMinutes)).toEqual([0, 10, 25]);
     service.removeTemplateContent(template, 0);
     service.addTemplateContent(template);

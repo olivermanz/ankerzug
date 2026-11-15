@@ -412,6 +412,15 @@ all three strings. Rust defaults missing
 converted v1 data; new payloads serialize it explicitly. Schema/backup version 2
 and both backup readers remain unchanged.
 
+### Library editors
+
+Training games and session templates open in editor views within their existing
+library tabs. Angular keeps the overview mounted while editing and restores its
+scroll position, controls and trigger focus on return. The view switch respects
+the system's reduced-motion preference and uses local UI state. New records are
+held as drafts until explicitly saved. Once added to the workspace, they remain
+open in the editor and use the same autosave and retry path as existing records.
+
 ## Consecutive content timing and pauses
 
 Angular derives `startOffsetMinutes` from ordered block durations: the first starts
