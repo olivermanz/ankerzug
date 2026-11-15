@@ -87,7 +87,7 @@ export function newContent(start = 0, duration = 30, text = ''): Content {
     content: text,
     material: '',
     category: '',
-    areas: ['SCHIESSTECHNIK'],
+    areas: [],
     subcategory: '',
     plannedArrowCount: null,
     actualArrowCount: null,
@@ -399,11 +399,7 @@ export function acceptPreview(cycle: MacroCycle, rows: Occurrence[]): void {
     if (row.applyProfile) Object.assign(session, row.profile);
     session.reduced = row.reduced;
     if (!['AT', 'MT', 'M-T'].includes(row.sessionType))
-      session.contents.push(
-        Object.assign(newContent(0, 30, 'Aufwärmen und Einschießen'), {
-          areas: ['SCHIESSTECHNIK', 'ATHLETIK'] as Area[],
-        }),
-      );
+      session.contents.push(newContent(0, 30, 'Aufwärmen und Einschießen'));
     session.generationBaseline = generationBaseline(session);
     cycle.sessions.push(session);
     existing.add(row.key);
@@ -747,8 +743,6 @@ export function contentWarnings(s: { contents: Content[]; plannedDuration: numbe
   const warnings: string[] = [];
   let end = 0;
   for (const b of s.contents) {
-    if (!b.areas.length && b.category !== 'Pause')
-      warnings.push(`${b.content}: Bestandskategorie ohne eindeutigen Bereich; bitte zuordnen.`);
     if (b.startOffsetMinutes < end) warnings.push(`${b.content}: zeitliche Überschneidung.`);
     if (b.startOffsetMinutes > end) warnings.push(`${b.content}: ungeplante Lücke.`);
     end = Math.max(end, b.startOffsetMinutes + b.durationMinutes);
@@ -857,12 +851,6 @@ export function summarize(sessions: Session[]) {
       (s) => sessionArrows(s),
       (s) => sessionArrows(s, true),
     ),
-    areas: AREAS.map((area) => ({
-      area,
-      count: planned.filter(
-        (s) => s.areas.includes(area) || s.contents.some((b) => b.areas.includes(area)),
-      ).length,
-    })),
   };
 }
 export interface PlanningWarning {
@@ -1020,34 +1008,6 @@ export function detailedWarnings(c: MacroCycle): PlanningWarning[] {
         ],
       );
     previous = total;
-  }
-  if (
-    ordered.length &&
-    dayNumber(ordered.at(-1)!.date) - dayNumber(ordered[0].date) >= config.recoveryLookbackDays
-  ) {
-    const end = ordered.at(-1)!.date;
-    const recent = ordered.filter(
-      (s) => dayNumber(end) - dayNumber(s.date) <= config.recoveryLookbackDays,
-    );
-    for (const area of ['ATHLETIK', 'REGENERATION'] as const)
-      if (
-        !recent.some(
-          (s) =>
-            s.areas.includes(area) ||
-            s.contents.some((b) => b.areas.includes(area)) ||
-            (area === 'ATHLETIK' && s.sessionType === 'AT'),
-        )
-      )
-        add(
-          'missing-area',
-          `${end}: kein Bereich ${area} in den letzten ${config.recoveryLookbackDays} Tagen.`,
-          [
-            area,
-            end,
-            config.recoveryLookbackDays,
-            recent.map((s) => [s.id, s.sessionType, s.areas, s.contents.map((b) => b.areas)]),
-          ],
-        );
   }
   return result;
 }

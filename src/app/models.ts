@@ -35,6 +35,7 @@ export interface Content {
   content: string;
   material: string;
   category: string;
+  /** Retained for compatibility with stored plans and exchanges. */
   areas: Area[];
   subcategory: string;
   plannedArrowCount: number | null;
@@ -99,6 +100,7 @@ export interface Session {
   notes: string;
   status: 'planned' | 'completed' | 'cancelled' | 'moved';
   sessionType: SessionType;
+  /** Retained for compatibility with stored plans and exchanges. */
   areas: Area[];
   volume: number | null;
   intensity: number | null;
@@ -166,6 +168,7 @@ export interface MacroCycle {
 }
 export interface Template {
   sessionType: SessionType;
+  /** Retained for compatibility with stored plans and exchanges. */
   areas: Area[];
   volume: number | null;
   intensity: number | null;
@@ -373,6 +376,7 @@ export interface PlanningConfiguration {
   consecutiveHardSessions: number;
   loadRisePercent: number;
   loadRiseWeeks: number;
+  /** Retained for compatibility with historical planning settings. */
   recoveryLookbackDays: number;
   longSeasonDays: number;
 }
