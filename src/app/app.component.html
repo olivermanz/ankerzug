@@ -1592,6 +1592,7 @@
               }
             }
             <h3>Inhalte deiner Einheit</h3>
+            <hr class="session-content-divider" />
             @let segments = contentComposition(s.contents);
             <div
               class="mesocycle-composition"
@@ -1626,8 +1627,10 @@
               }
             </div>
             @if (segments.length) {
-              <div class="session-type-legend" aria-label="Legende der zeitlichen Aufteilung">
-                <h3>Legende</h3>
+              <div
+                class="session-type-legend session-content-legend"
+                aria-label="Legende der zeitlichen Aufteilung"
+              >
                 <ul>
                   @for (segment of segments; track segment.type) {
                     <li

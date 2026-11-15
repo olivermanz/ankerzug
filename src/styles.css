@@ -424,6 +424,15 @@ input[type='checkbox'] {
   border-top: 1px solid var(--line);
   padding-top: 12px;
 }
+.session-content-divider {
+  border: 0;
+  border-top: 1px solid var(--line);
+  margin: 0 0 12px;
+}
+.session-content-legend {
+  border-top: 0;
+  padding-top: 0;
+}
 .session-type-legend h3 {
   margin: 0 0 8px;
   font-size: 14px;
