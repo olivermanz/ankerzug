@@ -1,6 +1,6 @@
 {
   "name": "ankerzug",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "private": true,
   "license": "GPL-3.0-only",
   "packageManager": "pnpm@12.16.1",
