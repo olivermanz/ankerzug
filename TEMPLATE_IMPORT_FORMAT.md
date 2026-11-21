@@ -83,6 +83,13 @@ Unknown optional numbers are `null`; **0 means an explicitly known zero**.
 Absolute arrow targets can exceed 100. Arrow quantities are distinct from volume,
 intensity, specificity and block load; do not convert one into another.
 
+A block may optionally carry one PDF `attachment` with an `id`, a `filename`
+ending in `.pdf` and a `bytes` array of integers from 0 to 255 containing the
+complete original file. Each page must be A4 in either orientation (±5 mm per
+dimension) and the file may contain at most 1,000,000 bytes. Omit this field
+when the trainer has supplied no attachment. Blocks that reference the same
+attachment ID must provide identical names and bytes.
+
 Template block editors currently hide some metadata, including planned arrow
 counts/load, subcategory, exercise reference and notes. Keep the actual trainer
 instructions in the visible `content` field and equipment in `material`; the

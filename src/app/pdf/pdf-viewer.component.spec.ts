@@ -2,7 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DataAccessService } from '../data-access.service';
 import { PdfViewerComponent } from './pdf-viewer.component';
-import { PdfRendererService } from './pdf-viewer';
+import { PdfPreviewBudgetExceeded, PdfRendererService } from './pdf-viewer';
 
 const mocks = { load: vi.fn() };
 
@@ -71,11 +71,27 @@ describe('PDF viewer printing', () => {
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('button.primary').disabled).toBe(true);
     expect(fixture.nativeElement.querySelectorAll('canvas')).toHaveLength(0);
+    expect(fixture.componentInstance.canSave()).toBe(false);
     expect(fixture.nativeElement.querySelector('[role="alert"]').textContent).toContain(
       'PDF-Export erneut starten',
     );
     fixture.destroy();
     expect(destroy).toHaveBeenCalledTimes(1);
+  });
+
+  it('still saves the complete document if the print preview exceeds its memory limit', async () => {
+    render.mockResolvedValueOnce(undefined).mockRejectedValueOnce(new PdfPreviewBudgetExceeded());
+    const fixture = TestBed.createComponent(PdfViewerComponent);
+    fixture.detectChanges();
+    await vi.waitFor(() => expect(fixture.componentInstance.canSave()).toBe(true));
+    fixture.detectChanges();
+    const [saveButton, printButton] = fixture.nativeElement.querySelectorAll('button');
+    expect(saveButton.disabled).toBe(false);
+    expect(printButton.disabled).toBe(true);
+    expect(fixture.nativeElement.querySelectorAll('canvas')).toHaveLength(0);
+    saveButton.click();
+    await vi.waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+    fixture.destroy();
   });
 
   it('surfaces transport errors without loading a document', async () => {

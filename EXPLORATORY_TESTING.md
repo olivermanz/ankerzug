@@ -441,3 +441,10 @@ the viewer screenshot was inspected. All managed test applications were stopped.
 
 Windows/macOS, installed packages and screen-reader acceptance remain pending.
 This scoped feature evidence does not establish complete product release acceptance.
+
+For content PDFs, add a mixed-orientation A4 document and a second attachment
+separated by an unattached block. Reorder the blocks, export both session layouts
+and check the references, headings, page order, rotation and margins. Cancel
+replacement and try an oversized file and a multi-page file with a non-A4 page.
+Verify the previous preview survives. Restart after autosave and check the marker,
+then export/import a template or cycle and inspect the PDF in the imported copy.
