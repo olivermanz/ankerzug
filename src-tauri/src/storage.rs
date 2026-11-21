@@ -1,7 +1,12 @@
 use crate::models::*;
 use rusqlite::{Connection, OptionalExtension, params};
 use serde::Serialize;
-use std::{collections::HashSet, path::Path};
+use std::{
+    collections::{HashMap, HashSet},
+    path::Path,
+};
+
+const CONTENT_PDF_LIMIT: usize = 1_000_000;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -344,19 +349,85 @@ fn to_payload(workspace: &Workspace) -> Result<String> {
     }
     Ok(payload)
 }
-fn without_attachment_bytes(workspace: &Workspace) -> (Workspace, Vec<AttachmentBytes>) {
-    let mut workspace = workspace.clone();
-    let mut attachments = Vec::new();
-    for game in &mut workspace.games {
-        for attachment in &mut game.attachments {
-            if let Some(bytes) = attachment.bytes.take() {
-                attachments.push(AttachmentBytes {
-                    id: attachment.id.clone(),
-                    bytes,
-                });
-            }
+fn content_blocks(workspace: &Workspace) -> impl Iterator<Item = &Content> {
+    workspace.templates.iter().flat_map(|t| &t.contents).chain(
+        workspace
+            .cycles
+            .iter()
+            .flat_map(|c| &c.sessions)
+            .flat_map(|s| {
+                s.contents
+                    .iter()
+                    .chain(s.generation_baseline.iter().flat_map(|b| &b.contents))
+            }),
+    )
+}
+
+pub(crate) fn validate_portable_content_attachments(workspace: &Workspace) -> Result<()> {
+    let mut attachments = HashMap::new();
+    for attachment in content_blocks(workspace).filter_map(|block| block.attachment.as_ref()) {
+        let bytes = attachment
+            .bytes
+            .as_ref()
+            .ok_or_else(|| invalid("PDF-Anlage fehlt im Paket."))?;
+        validate_content_pdf(&attachment.filename, bytes)?;
+        if let Some(previous) = attachments.insert(&attachment.id, bytes) {
+            require(previous == bytes, "Widersprüchliche PDF-Daten.")?;
         }
     }
+    Ok(())
+}
+
+fn attachments_mut(workspace: &mut Workspace) -> impl Iterator<Item = &mut GameAttachment> {
+    let templates = workspace.templates.iter_mut().flat_map(|t| &mut t.contents);
+    let sessions = workspace
+        .cycles
+        .iter_mut()
+        .flat_map(|c| &mut c.sessions)
+        .flat_map(|s| {
+            s.contents.iter_mut().chain(
+                s.generation_baseline
+                    .iter_mut()
+                    .flat_map(|b| &mut b.contents),
+            )
+        });
+    workspace
+        .games
+        .iter_mut()
+        .flat_map(|g| &mut g.attachments)
+        .chain(
+            templates
+                .chain(sessions)
+                .filter_map(|block| block.attachment.as_mut()),
+        )
+}
+
+fn validate_content_pdf(filename: &str, bytes: &[u8]) -> Result<()> {
+    require(
+        bytes.len() <= CONTENT_PDF_LIMIT,
+        "Anlagen dürfen höchstens 1 MB groß sein.",
+    )?;
+    crate::games::validate_attachment(filename, bytes)
+}
+
+fn hydrate_attachments(connection: &Connection, workspace: &mut Workspace) -> Result<()> {
+    let mut statement = connection.prepare("SELECT bytes FROM game_attachments WHERE id=?1")?;
+    for attachment in attachments_mut(workspace) {
+        attachment.bytes = Some(statement.query_row([&attachment.id], |row| row.get(0))?);
+    }
+    Ok(())
+}
+
+fn without_attachment_bytes(workspace: &Workspace) -> (Workspace, Vec<AttachmentBytes>) {
+    let mut workspace = workspace.clone();
+    let attachments = attachments_mut(&mut workspace)
+        .filter_map(|attachment| {
+            attachment.bytes.take().map(|bytes| AttachmentBytes {
+                id: attachment.id.clone(),
+                bytes,
+            })
+        })
+        .collect();
     (workspace, attachments)
 }
 pub fn valid_date(value: &str) -> bool {
@@ -490,18 +561,22 @@ pub fn validate(workspace: &Workspace) -> Result<()> {
             }
         }
     }
-    let blocks = workspace.templates.iter().flat_map(|t| &t.contents).chain(
-        workspace
-            .cycles
-            .iter()
-            .flat_map(|c| &c.sessions)
-            .flat_map(|s| {
-                s.contents
-                    .iter()
-                    .chain(s.generation_baseline.iter().flat_map(|b| &b.contents))
-            }),
-    );
-    for block in blocks {
+    let mut content_pdfs = HashMap::new();
+    for block in content_blocks(workspace) {
+        if let Some(attachment) = &block.attachment {
+            if let Some(filename) = content_pdfs.insert(&attachment.id, &attachment.filename) {
+                require(
+                    filename == &attachment.filename,
+                    "Widersprüchlicher PDF-Dateiname.",
+                )?;
+            } else {
+                identifier(&attachment.id, &mut ids)?;
+            }
+            crate::games::validate_attachment_name(&attachment.filename)?;
+            if let Some(bytes) = &attachment.bytes {
+                validate_content_pdf(&attachment.filename, bytes)?;
+            }
+        }
         if let Some(game_id) = &block.game_id {
             require(
                 block.category == "Spiel" && game_ids.contains(game_id),
@@ -1013,28 +1088,30 @@ impl Store {
         let (workspace, mut attachment_bytes) = without_attachment_bytes(&workspace);
         attachment_bytes.extend(attachments);
         validate(&workspace)?;
-        let attachment_ids: HashSet<_> = workspace
+        let mut attachment_index: HashMap<_, _> = workspace
             .games
             .iter()
-            .flat_map(|game| {
-                game.attachments
-                    .iter()
-                    .map(|attachment| attachment.id.as_str())
-            })
+            .flat_map(|game| &game.attachments)
+            .map(|a| (a.id.as_str(), (a.filename.as_str(), false)))
+            .chain(
+                content_blocks(&workspace)
+                    .filter_map(|block| block.attachment.as_ref())
+                    .map(|a| (a.id.as_str(), (a.filename.as_str(), true))),
+            )
             .collect();
+        let mut pending = HashMap::new();
         for attachment in &attachment_bytes {
-            require(
-                attachment_ids.contains(attachment.id.as_str()),
-                "Ungültiger PDF-Anhang.",
-            )?;
-            let filename = workspace
-                .games
-                .iter()
-                .flat_map(|game| game.attachments.iter())
-                .find(|stored| stored.id == attachment.id)
-                .map(|stored| stored.filename.as_str())
+            let (filename, is_content) = attachment_index
+                .get(attachment.id.as_str())
                 .ok_or_else(|| invalid("Ungültiger PDF-Anhang."))?;
-            crate::games::validate_attachment(filename, &attachment.bytes)?;
+            if *is_content {
+                validate_content_pdf(filename, &attachment.bytes)?;
+            } else {
+                crate::games::validate_attachment(filename, &attachment.bytes)?;
+            }
+            if let Some(previous) = pending.insert(&attachment.id, &attachment.bytes) {
+                require(previous == &attachment.bytes, "Widersprüchliche PDF-Daten.")?;
+            }
         }
         let payload = to_payload(&workspace)?;
         let transaction = self
@@ -1060,17 +1137,7 @@ impl Store {
             let normalized = normalize_payload(&old_payload)?;
             let mut old_workspace: Workspace = serde_json::from_str(&normalized)
                 .map_err(|e| stored(&format!("Ungültige gespeicherte Daten: {e}")))?;
-            for attachment in old_workspace
-                .games
-                .iter_mut()
-                .flat_map(|game| game.attachments.iter_mut())
-            {
-                attachment.bytes = Some(transaction.query_row(
-                    "SELECT bytes FROM game_attachments WHERE id=?1",
-                    [&attachment.id],
-                    |row| row.get(0),
-                )?);
-            }
+            hydrate_attachments(&transaction, &mut old_workspace)?;
             transaction.execute(
                 "INSERT INTO recovery (schema_version, revision, payload) VALUES (2, ?1, ?2)",
                 params![
@@ -1079,31 +1146,38 @@ impl Store {
                 ],
             )?;
         }
-        for attachment in &attachment_bytes {
+        for (id, bytes) in pending {
             transaction.execute(
                 "INSERT INTO game_attachments (id, bytes) VALUES (?1, ?2) ON CONFLICT(id) DO UPDATE SET bytes=excluded.bytes",
-                params![attachment.id, attachment.bytes],
+                params![id, bytes],
             )?;
         }
-        for attachment_id in &attachment_ids {
-            let exists: bool = transaction.query_row(
-                "SELECT EXISTS(SELECT 1 FROM game_attachments WHERE id=?1)",
-                [*attachment_id],
-                |row| row.get(0),
-            )?;
-            require(exists, "PDF-Anhang fehlt im lokalen Speicher.")?;
-        }
-        let existing: Vec<String> = {
-            let mut statement = transaction.prepare("SELECT id FROM game_attachments")?;
+        // SQLite reads only the id and length metadata, even for large BLOBs.
+        let existing = {
+            let mut statement =
+                transaction.prepare("SELECT id, length(bytes) FROM game_attachments")?;
             statement
-                .query_map([], |row| row.get(0))?
+                .query_map([], |row| {
+                    Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?))
+                })?
                 .collect::<std::result::Result<Vec<_>, _>>()?
         };
-        for attachment_id in existing {
-            if !attachment_ids.contains(attachment_id.as_str()) {
-                transaction.execute("DELETE FROM game_attachments WHERE id=?1", [attachment_id])?;
+        for (id, size) in existing {
+            match attachment_index.remove(id.as_str()) {
+                Some((_, true)) => require(
+                    size <= CONTENT_PDF_LIMIT as i64,
+                    "Anlagen dürfen höchstens 1 MB groß sein.",
+                )?,
+                Some((_, false)) => {}
+                None => {
+                    transaction.execute("DELETE FROM game_attachments WHERE id=?1", [id])?;
+                }
             }
         }
+        require(
+            attachment_index.is_empty(),
+            "PDF-Anhang fehlt im lokalen Speicher.",
+        )?;
         transaction.execute("INSERT INTO documents (id, schema_version, revision, payload) VALUES (1, 2, ?1, ?2) ON CONFLICT(id) DO UPDATE SET revision=excluded.revision, payload=excluded.payload", params![revision as i64, payload])?;
         transaction.commit()?;
         Ok(Snapshot {
@@ -1112,7 +1186,8 @@ impl Store {
         })
     }
     pub fn backup(&self) -> Result<String> {
-        let workspace = self.workspace_with_attachment_bytes(self.load()?.workspace)?;
+        let mut workspace = self.load()?.workspace;
+        hydrate_attachments(&self.connection, &mut workspace)?;
         serde_json::to_string_pretty(&Backup {
             format_version: 2,
             workspace,
@@ -1135,6 +1210,7 @@ impl Store {
             revision: 0,
             payload,
         })?;
+        validate_portable_content_attachments(&snapshot.workspace)?;
         let (workspace, attachments) = without_attachment_bytes(&snapshot.workspace);
         self.write(
             SaveInput {
@@ -1168,6 +1244,7 @@ impl Store {
             }
             _ => return Err(invalid("Nicht unterstützte Backupversion.")),
         };
+        validate_portable_content_attachments(&workspace)?;
         let (workspace, attachments) = without_attachment_bytes(&workspace);
         self.write(
             SaveInput {
@@ -1177,20 +1254,6 @@ impl Store {
             },
             true,
         )
-    }
-    fn workspace_with_attachment_bytes(&self, mut workspace: Workspace) -> Result<Workspace> {
-        for attachment in workspace
-            .games
-            .iter_mut()
-            .flat_map(|game| game.attachments.iter_mut())
-        {
-            attachment.bytes = Some(self.connection.query_row(
-                "SELECT bytes FROM game_attachments WHERE id=?1",
-                [&attachment.id],
-                |row| row.get(0),
-            )?);
-        }
-        Ok(workspace)
     }
     pub fn attachment_bytes(&self, ids: &[String]) -> Result<Vec<AttachmentBytes>> {
         ids.iter()
@@ -1568,6 +1631,121 @@ mod tests {
             attachments: vec![],
         })
     }
+    #[test]
+    fn content_pdf_survives_restart_shared_references_backup_and_recovery() {
+        let fixture: Backup =
+            serde_json::from_str(include_str!("../../fixtures/workspace-regeneration.json"))
+                .unwrap();
+        let mut data = fixture.workspace;
+        let bytes = b"%PDF-1.7\n%%EOF".to_vec();
+        let id = "content-pdf".to_owned();
+        let attachment = GameAttachment {
+            id: id.clone(),
+            filename: "Übung.pdf".into(),
+            bytes: None,
+        };
+        data.templates[0].contents[0].attachment = Some(attachment.clone());
+        let session = &mut data.cycles[0].sessions[0];
+        session.contents[0].attachment = Some(attachment.clone());
+        session.generation_baseline.as_mut().unwrap().contents[0].attachment = Some(attachment);
+
+        let path = std::env::temp_dir().join(format!(
+            "ankerzug-content-pdf-{}.sqlite",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_file(&path);
+        let mut store = Store::open(&path).unwrap();
+        let saved = store
+            .save(SaveInput {
+                expected_revision: 0,
+                workspace: data,
+                attachments: vec![AttachmentBytes {
+                    id: id.clone(),
+                    bytes: bytes.clone(),
+                }],
+            })
+            .unwrap();
+        assert!(attachments_mut(&mut saved.workspace.clone()).all(|a| a.bytes.is_none()));
+        drop(store);
+        let mut store = Store::open(&path).unwrap();
+        let mut data = store.load().unwrap().workspace;
+        assert!(attachments_mut(&mut data).all(|a| a.bytes.is_none()));
+        let backup = store.backup().unwrap();
+        let mut portable: Backup = serde_json::from_str(&backup).unwrap();
+        let pdfs: Vec<_> = attachments_mut(&mut portable.workspace).collect();
+        assert_eq!(pdfs.len(), 3);
+        assert!(pdfs.iter().all(|a| a.bytes.as_ref() == Some(&bytes)));
+        data.templates[0].contents[0].attachment = None;
+        data.cycles[0].sessions[0].contents[0].attachment = None;
+        save(&mut store, data.clone(), 1).unwrap();
+        assert_eq!(
+            store.attachment_bytes(std::slice::from_ref(&id)).unwrap()[0].bytes,
+            bytes
+        );
+        data.cycles[0].sessions[0]
+            .generation_baseline
+            .as_mut()
+            .unwrap()
+            .contents[0]
+            .attachment = None;
+        save(&mut store, data, 2).unwrap();
+        assert!(store.attachment_bytes(std::slice::from_ref(&id)).is_err());
+        store.restore(&backup, 3).unwrap();
+        assert_eq!(store.backup().unwrap(), backup);
+        store.restore(FIXTURE, 4).unwrap();
+        assert!(store.attachment_bytes(std::slice::from_ref(&id)).is_err());
+        store.recover(5).unwrap();
+        assert_eq!(store.backup().unwrap(), backup);
+        drop(store);
+        std::fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn invalid_replacement_or_incomplete_portable_pdf_preserves_saved_state() {
+        let mut store = store();
+        let mut data = workspace();
+        let bytes = b"%PDF-1.7\n%%EOF".to_vec();
+        data.templates[0].contents[0].attachment = Some(GameAttachment {
+            id: "original".into(),
+            filename: "Aufgabe.pdf".into(),
+            bytes: Some(bytes.clone()),
+        });
+        let saved = save(&mut store, data, 0).unwrap();
+        let backup = store.backup().unwrap();
+        let mut replacement = saved.workspace.clone();
+        replacement.templates[0].contents[0]
+            .attachment
+            .as_mut()
+            .unwrap()
+            .id = "missing".into();
+        assert!(save(&mut store, replacement, 1).is_err());
+        let mut oversized = bytes.clone();
+        oversized.resize(CONTENT_PDF_LIMIT + 1, b' ');
+        assert!(
+            store
+                .save(SaveInput {
+                    workspace: saved.workspace.clone(),
+                    expected_revision: 1,
+                    attachments: vec![AttachmentBytes {
+                        id: "original".into(),
+                        bytes: oversized
+                    }]
+                })
+                .is_err()
+        );
+        let incomplete = Backup {
+            format_version: 2,
+            workspace: saved.workspace,
+        };
+        assert!(
+            store
+                .restore(&serde_json::to_string(&incomplete).unwrap(), 1)
+                .is_err()
+        );
+        assert_eq!(store.load().unwrap().revision, 1);
+        assert_eq!(store.backup().unwrap(), backup);
+    }
+
     #[test]
     fn mesocycle_defaults_round_trip_and_dangling_references_roll_back() {
         let mut data = serde_json::from_str::<serde_json::Value>(FIXTURE).unwrap();

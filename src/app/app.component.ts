@@ -1,3 +1,4 @@
+import { ContentAttachmentComponent } from './attachments/content-attachment.component';
 import { WelcomeComponent } from './welcome/welcome.component';
 import { gameForms } from './games/games';
 import { GamesComponent } from './games/games.component';
@@ -69,6 +70,7 @@ import {
   selector: 'app-root',
   standalone: true,
   imports: [
+    ContentAttachmentComponent,
     WelcomeComponent,
     GamesComponent,
     TemplatesComponent,

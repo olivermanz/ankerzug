@@ -1,0 +1,54 @@
+<button type="button" (click)="open()">Anlage</button>
+@if (content().attachment) {
+  <span class="marker" role="img" aria-label="Anlage vorhanden" title="Anlage vorhanden">✓</span>
+}
+<dialog
+  #dialog
+  class="manual-session-dialog"
+  aria-label="Anlage zum Trainingsinhalt"
+  (cancel)="$event.preventDefault(); close()"
+>
+  <div class="section-heading">
+    <h2>Anlage zum Trainingsinhalt</h2>
+    <button type="button" (click)="close()" autofocus>Schließen</button>
+  </div>
+  @if (content().attachment; as attachment) {
+    <p>{{ attachment.filename }}</p>
+  } @else {
+    <p>Keine Anlage vorhanden.</p>
+  }
+  <div #preview class="preview" aria-label="PDF-Vorschau"></div>
+  @if (count() > 1) {
+    <div class="actions">
+      <button type="button" (click)="turn(page() - 1)" [disabled]="busy() || page() <= 1">
+        Vorherige Seite
+      </button>
+      <span aria-live="polite">Seite {{ page() }} von {{ count() }}</span>
+      <button type="button" (click)="turn(page() + 1)" [disabled]="busy() || page() >= count()">
+        Nächste Seite
+      </button>
+    </div>
+  }
+  @if (busy()) {
+    <p role="status">PDF wird geladen …</p>
+  }
+  @if (error()) {
+    <p class="notice danger" role="alert">{{ error() }}</p>
+  }
+  <div class="actions">
+    <input #picker hidden type="file" accept=".pdf,application/pdf" (change)="select(picker)" />
+    <button type="button" (click)="picker.click()" [disabled]="busy()">
+      {{ content().attachment ? 'Anlage ersetzen' : 'Anlage hinzufügen' }}
+    </button>
+    @if (content().attachment) {
+      <button
+        type="button"
+        class="text-button danger-button"
+        (click)="remove()"
+        [disabled]="busy()"
+      >
+        Anlage löschen
+      </button>
+    }
+  </div>
+</dialog>

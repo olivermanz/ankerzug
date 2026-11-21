@@ -145,7 +145,7 @@
             >
           }
 
-          <div class="actions">
+          <div class="actions wide">
             <button
               (click)="planner.moveContents(t, i, -1)"
               [disabled]="i === 0"
@@ -164,6 +164,7 @@
             >
               Entfernen
             </button>
+            <app-content-attachment [content]="b" (changed)="planner.templateChanged(t)" />
           </div>
         </div>
       }

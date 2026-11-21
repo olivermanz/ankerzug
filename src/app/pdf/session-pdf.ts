@@ -1,6 +1,7 @@
 import { gameName } from '../games/games';
 import { jsPDF } from 'jspdf';
-import { Game, MacroCycle, Session } from '../models';
+import { Content, Game, MacroCycle, Session } from '../models';
+import { loadPdfPages } from './pdf-viewer';
 import { NOTO_SANS } from './noto-sans';
 
 const MARGIN = 13;
@@ -158,12 +159,17 @@ export function renderSessionLandscapePdf(
   };
   drawHeader();
   let elapsed = 0;
+  let attachmentNumber = 0;
   for (const block of session.contents) {
     const values = [
       block.category || '–',
       `${block.durationMinutes} (${elapsed + block.durationMinutes}) min`,
       block.goals,
-      [gameName(block, games) ? `Spiel: ${gameName(block, games)}` : '', block.content]
+      [
+        gameName(block, games) ? `Spiel: ${gameName(block, games)}` : '',
+        block.content,
+        block.attachment ? `siehe Anlage ${++attachmentNumber}` : '',
+      ]
         .filter(Boolean)
         .join('\n\n'),
       block.material,
@@ -206,7 +212,9 @@ export function renderSessionLandscapePdf(
     doc.setFontSize(7);
     doc.setTextColor(100);
     doc.text('ANKERZUG  /  Trainingsplan', margin, 204);
-    doc.text(`Seite ${page} / ${pages}`, right, 204, { align: 'right' });
+    doc.text(`${attachmentNumber ? 'Planseite' : 'Seite'} ${page} / ${pages}`, right, 204, {
+      align: 'right',
+    });
   }
 }
 
@@ -319,6 +327,7 @@ export function renderSessionPdf(
   y += 7;
   if (!session.contents.length) text('Noch keine Trainingsinhalte geplant.');
   let minutes = 0;
+  let attachmentNumber = 0;
   for (const [index, block] of session.contents.entries()) {
     const title = `${index + 1}. ${block.category || 'Trainingsinhalt'}`;
     const titleLines = wrap(title, 133, 11);
@@ -328,6 +337,7 @@ export function renderSessionPdf(
       block.content,
       block.material.trim() ? `Material: ${block.material}` : '',
       block.notes.trim() ? `Anmerkungen: ${block.notes}` : '',
+      block.attachment ? `siehe Anlage ${++attachmentNumber}` : '',
     ]
       .filter(Boolean)
       .join('\n\n');
@@ -389,6 +399,54 @@ export function renderSessionPdf(
     doc.setFontSize(7);
     doc.setTextColor(100);
     doc.text('ANKERZUG  /  Trainingsplan', MARGIN, 287);
-    doc.text(`Seite ${page} / ${pages}`, 197, 287, { align: 'right' });
+    doc.text(`${attachmentNumber ? 'Planseite' : 'Seite'} ${page} / ${pages}`, 197, 287, {
+      align: 'right',
+    });
+  }
+}
+
+/** Append the printable appearance of each source page beneath its own heading. */
+export async function appendSessionAttachments(
+  doc: jsPDF,
+  session: Session,
+  readBytes: (content: Content) => Promise<number[]>,
+  load = loadPdfPages,
+): Promise<void> {
+  const width = doc.internal.pageSize.getWidth();
+  const height = doc.internal.pageSize.getHeight();
+  const orientation = width > height ? 'landscape' : 'portrait';
+  const top = 15;
+  const margin = 6;
+  let number = 0;
+  for (const block of session.contents) {
+    if (!block.attachment) continue;
+    number++;
+    const pdf = await load(new Uint8Array(await readBytes(block)), 'single-page');
+    const canvas = document.createElement('canvas');
+    try {
+      for (let page = 1; page <= pdf.count; page++) {
+        await pdf.render(page, canvas, orientation);
+        const scale = Math.min(
+          (width - 2 * margin) / canvas.width,
+          (height - top - margin) / canvas.height,
+        );
+        const imageWidth = canvas.width * scale;
+        doc.addPage('a4', orientation);
+        doc.setFontSize(12);
+        doc.setTextColor(38, 76, 61);
+        doc.text(`Anlage ${number}`, margin, 10);
+        doc.addImage(
+          canvas.toDataURL('image/jpeg', 0.92),
+          'JPEG',
+          (width - imageWidth) / 2,
+          top,
+          imageWidth,
+          canvas.height * scale,
+        );
+      }
+    } finally {
+      canvas.width = canvas.height = 0;
+      await pdf.destroy();
+    }
   }
 }

@@ -1,5 +1,7 @@
 use crate::models::{Game, MacroCycle, Template, Workspace};
-use crate::storage::{AppError, ErrorCode, Result, validate};
+use crate::storage::{
+    AppError, ErrorCode, Result, validate, validate_portable_content_attachments,
+};
 use serde::{Deserialize, Serialize};
 use std::io::Read;
 use tauri_plugin_dialog::DialogExt;
@@ -57,13 +59,15 @@ pub fn parse_package(contents: &str) -> Result<MacroCyclePackage> {
     if package.format_version == 1 && !package.games.is_empty() {
         return Err(invalid("Spieldaten erfordern Paketformat 2."));
     }
-    validate(&Workspace {
+    let workspace = Workspace {
         games: package.games.clone(),
         cycles: vec![package.cycle.clone()],
         templates: package.templates.clone(),
         session_type_colors: crate::models::default_session_type_colors(),
         planning_template: None,
-    })?;
+    };
+    validate(&workspace)?;
+    validate_portable_content_attachments(&workspace)?;
     Ok(package)
 }
 #[tauri::command]
@@ -102,13 +106,15 @@ fn parse_template_package(contents: &str) -> Result<TemplatePackage> {
     if package.format_version == 1 && !package.games.is_empty() {
         return Err(invalid("Spieldaten erfordern Paketformat 2."));
     }
-    validate(&Workspace {
+    let workspace = Workspace {
         games: package.games.clone(),
         cycles: vec![],
         templates: package.templates.clone(),
         session_type_colors: crate::models::default_session_type_colors(),
         planning_template: None,
-    })?;
+    };
+    validate(&workspace)?;
+    validate_portable_content_attachments(&workspace)?;
     Ok(package)
 }
 pub(crate) fn pick_package_contents(
@@ -366,6 +372,25 @@ mod tests {
             .as_ref()
             .unwrap();
         assert_eq!(baseline.contents[0].category, "KT");
+    }
+
+    #[test]
+    fn portable_packages_require_consistent_embedded_content_pdf_data() {
+        let mut packet = package();
+        let attachment = serde_json::json!({
+            "id": "exercise-pdf", "filename": "Aufgabe.pdf", "bytes": b"%PDF-1.7\n%%EOF"
+        });
+        packet["templates"][0]["contents"][0]["attachment"] = attachment.clone();
+        packet["cycle"]["sessions"][0]["contents"][0]["attachment"] = attachment;
+        assert!(parse_package(&packet.to_string()).is_ok());
+        let first = &mut packet["templates"][0]["contents"][0]["attachment"];
+        first["bytes"] = serde_json::json!(b"%PDF-1.4\n%%EOF");
+        assert!(parse_package(&packet.to_string()).is_err());
+        packet["templates"][0]["contents"][0]["attachment"]
+            .as_object_mut()
+            .unwrap()
+            .remove("bytes");
+        assert!(parse_package(&packet.to_string()).is_err());
     }
 
     #[test]
