@@ -131,6 +131,18 @@ describe('standalone template exchange', () => {
     expect(w.templates[0].contents[0].material).toBe('Bögen und Pfeile');
     expect(() => templatePackage([])).toThrow('Mindestens');
   });
+  it('remaps a shared PDF reference once across independently imported template blocks', () => {
+    const w = workspace();
+    const t = w.templates[0];
+    const content = t.contents[0];
+    content.attachment = { id: 'shared-pdf', filename: 'Plan.pdf', bytes: [1, 2] };
+    t.contents.push({ ...structuredClone(content), id: 'copied-content' });
+    const copy = templateImportPreview(w, templatePackage([t])).templates[0];
+    expect(copy.contents[0].attachment!.id).not.toBe('shared-pdf');
+    expect(copy.contents.at(-1)!.attachment).toEqual(copy.contents[0].attachment);
+    expect(copy.contents[0].attachment!.bytes).toEqual([1, 2]);
+  });
+
   it('imports multiple templates atomically with independent content arrays', () => {
     const w = workspace();
     const first = w.templates[0],

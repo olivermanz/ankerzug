@@ -79,6 +79,8 @@ pub struct Competition {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Content {
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub attachment: Option<GameAttachment>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub game_id: Option<String>,
     pub id: String,
     pub start_offset_minutes: u32,

@@ -1,3 +1,4 @@
+import { validateContentAttachment } from './attachments/content-attachment';
 import { Game, GameAttachment } from './models';
 import {
   GameImportPreview,
@@ -84,6 +85,34 @@ export class PlannerService {
   private waiters: Array<{ version: number; resolve: () => void; reject: (error: Error) => void }> =
     [];
   private pendingAttachmentBytes = new Map<string, number[]>();
+
+  private readonly draftAttachmentBytes = new WeakMap<GameAttachment, number[]>();
+
+  setContentAttachment(content: Content, file: { filename: string; bytes: number[] } | null): void {
+    if (!file) {
+      delete content.attachment;
+      return;
+    }
+    const attachment = { id: id(), filename: file.filename };
+    content.attachment = attachment;
+    if (workspaceBlocks(this.workspace()).includes(content)) {
+      this.pendingAttachmentBytes.set(attachment.id, file.bytes);
+    } else {
+      this.draftAttachmentBytes.set(attachment, file.bytes);
+    }
+  }
+
+  async contentAttachmentBytes(content: Content): Promise<number[]> {
+    const attachment = content.attachment;
+    if (!attachment) throw new Error('Dieser Trainingsinhalt hat keine Anlage.');
+    const pending =
+      this.pendingAttachmentBytes.get(attachment.id) ?? this.draftAttachmentBytes.get(attachment);
+    if (pending) return pending;
+    const [stored] = await this.access.readGameAttachments([attachment.id]);
+    if (!stored || stored.id !== attachment.id)
+      throw new Error('Anlage fehlt im lokalen Speicher.');
+    return stored.bytes;
+  }
 
   openHelp(): Promise<void> {
     return this.access.openHelp();
@@ -436,6 +465,12 @@ export class PlannerService {
       templates: [...this.workspace().templates, template],
     });
     if (errors.length) throw new Error(errors[0]);
+    for (const { attachment } of template.contents) {
+      if (attachment) {
+        const bytes = this.draftAttachmentBytes.get(attachment);
+        if (bytes) this.pendingAttachmentBytes.set(attachment.id, bytes);
+      }
+    }
     this.workspace().templates.push(structuredClone(template));
     this.changed();
   }
@@ -520,6 +555,12 @@ export class PlannerService {
         attachments: game.attachments.map(({ bytes: _bytes, ...attachment }) => attachment),
       })),
     });
+    if (this.pendingAttachmentBytes.size) {
+      const referenced = new Set(allAttachments(workspace).map((a) => a.id));
+      for (const key of this.pendingAttachmentBytes.keys()) {
+        if (!referenced.has(key)) this.pendingAttachmentBytes.delete(key);
+      }
+    }
     const attachments = [...this.pendingAttachmentBytes].map(([id, bytes]) => ({ id, bytes }));
     this.writing = true;
     this.status.set('saving');
@@ -666,11 +707,15 @@ export class PlannerService {
     await this.settled();
     const cycleCopy = structuredClone(cycle);
     const sessionCopy = structuredClone(session);
-    const { createSessionPdf, sessionPdfFilename } = await import('./pdf/session-pdf');
+    const { createSessionPdf, sessionPdfFilename, appendSessionAttachments } =
+      await import('./pdf/session-pdf');
     const document = createSessionPdf(
       cycleCopy,
       sessionCopy,
       structuredClone(this.workspace().games ?? []),
+    );
+    await appendSessionAttachments(document, sessionCopy, (content) =>
+      this.contentAttachmentBytes(content),
     );
     const bytes = Array.from(new Uint8Array(document.output('arraybuffer')));
     return this.access.exportSessionPdf(sessionPdfFilename(sessionCopy), bytes);
@@ -679,25 +724,89 @@ export class PlannerService {
     await this.settled();
     const cycleCopy = structuredClone(cycle);
     const sessionCopy = structuredClone(session);
-    const { createSessionLandscapePdf, sessionLandscapePdfFilename } =
+    const { createSessionLandscapePdf, sessionLandscapePdfFilename, appendSessionAttachments } =
       await import('./pdf/session-pdf');
     const document = createSessionLandscapePdf(
       cycleCopy,
       sessionCopy,
       structuredClone(this.workspace().games ?? []),
     );
+    await appendSessionAttachments(document, sessionCopy, (content) =>
+      this.contentAttachmentBytes(content),
+    );
     const bytes = Array.from(new Uint8Array(document.output('arraybuffer')));
     return this.access.exportSessionPdf(sessionLandscapePdfFilename(sessionCopy), bytes);
   }
+  private async packageBytes(packet: {
+    cycle?: MacroCycle;
+    templates: Template[];
+    games?: Game[];
+  }) {
+    const attachments = allAttachments({
+      cycles: packet.cycle ? [packet.cycle] : [],
+      templates: packet.templates,
+      games: packet.games,
+    });
+    if (attachments.length) {
+      const stored = await this.access.readGameAttachments([
+        ...new Set(attachments.map((a) => a.id)),
+      ]);
+      const bytes = new Map(stored.map((a) => [a.id, a.bytes]));
+      for (const attachment of attachments) {
+        const data = bytes.get(attachment.id);
+        if (!data) throw new Error('PDF-Anlage fehlt im lokalen Speicher.');
+        attachment.bytes = data;
+      }
+    }
+    return JSON.stringify(packet, null, attachments.length ? undefined : 2);
+  }
+
+  private async validatePackageAttachments(workspace: Workspace) {
+    await this.pdfValidator.validate(workspace.games ?? []);
+    const unique = new Map<string, { filename: string; bytes: number[] }>();
+    for (const { attachment } of workspaceBlocks(workspace)) {
+      if (!attachment) continue;
+      const { id, filename, bytes } = attachment;
+      if (!bytes) throw new Error('PDF-Daten der Anlage fehlen.');
+      const previous = unique.get(id);
+      if (
+        previous &&
+        (filename !== previous.filename ||
+          bytes.length !== previous.bytes.length ||
+          bytes.some((byte, i) => byte !== previous.bytes[i]))
+      ) {
+        throw new Error('Widersprüchliche Daten für dieselbe Anlage.');
+      }
+      unique.set(id, { filename, bytes });
+    }
+    for (const file of unique.values()) await validateContentAttachment(file);
+  }
+
+  private stageImportedBytes(workspace: Workspace) {
+    for (const attachment of allAttachments(workspace)) {
+      if (attachment.bytes) {
+        this.pendingAttachmentBytes.set(attachment.id, attachment.bytes);
+        delete attachment.bytes;
+      }
+    }
+  }
+
   async previewTemplateImport(): Promise<TemplateImportPreview | null> {
     await this.settled();
     const packet = await this.access.readTemplatePackage();
-    if (packet) await this.pdfValidator.validate(packet.games ?? []);
+    if (packet)
+      await this.validatePackageAttachments({
+        cycles: [],
+        templates: packet.templates,
+        games: packet.games,
+      });
     return packet ? templateImportPreview(this.workspace(), packet) : null;
   }
   async importTemplates(preview: TemplateImportPreview): Promise<void> {
     await this.settled();
-    this.workspace.set(projectedTemplateImport(this.workspace(), preview));
+    const workspace = projectedTemplateImport(this.workspace(), preview);
+    this.stageImportedBytes(workspace);
+    this.workspace.set(workspace);
     this.changed();
     await this.settled();
   }
@@ -716,18 +825,24 @@ export class PlannerService {
     return this.access.exportPlanFile(
       'templates',
       filename,
-      Array.from(new TextEncoder().encode(JSON.stringify(packet, null, 2))),
+      Array.from(new TextEncoder().encode(await this.packageBytes(packet))),
     );
   }
   async previewImport(): Promise<ImportPreview | null> {
     await this.settled();
     const packet = await this.access.readMacroCyclePackage();
-    if (packet) await this.pdfValidator.validate(packet.games ?? []);
+    if (packet)
+      await this.validatePackageAttachments({
+        cycles: [packet.cycle],
+        templates: packet.templates,
+        games: packet.games,
+      });
     return packet ? importPreview(this.workspace(), packet) : null;
   }
   async importMacroCycle(preview: ImportPreview): Promise<MacroCycle> {
     await this.settled();
     const workspace = projectedImport(this.workspace(), preview);
+    this.stageImportedBytes(workspace);
     this.workspace.set(workspace);
     this.changed();
     await this.settled();
@@ -750,10 +865,8 @@ export class PlannerService {
     } else {
       const text =
         format === 'package'
-          ? JSON.stringify(
+          ? await this.packageBytes(
               macroCyclePackage(copy, this.workspace().templates, this.workspace().games ?? []),
-              null,
-              2,
             )
           : format === 'markdown'
             ? markdownPlan(copy, this.workspace().games ?? [])
@@ -787,8 +900,7 @@ export class PlannerService {
   async restore(contents: string): Promise<void> {
     await this.settled();
     const envelope = JSON.parse(contents);
-    if (envelope.formatVersion === 2)
-      await this.pdfValidator.validate(envelope.workspace.games ?? []);
+    if (envelope.formatVersion === 2) await this.validatePackageAttachments(envelope.workspace);
     const snapshot = await this.access.restore(contents, this.revision);
     snapshot.workspace.cycles.forEach(
       (cycle) => (cycle.planning = normalizePlanning(cycle.planning)),
@@ -816,4 +928,13 @@ export class PlannerService {
         'Lokale Speicherung fehlgeschlagen. Änderungen bleiben für einen erneuten Versuch erhalten.',
     );
   }
+}
+
+function allAttachments(workspace: Workspace): GameAttachment[] {
+  return [
+    ...workspaceBlocks(workspace).flatMap((content) =>
+      content.attachment ? [content.attachment] : [],
+    ),
+    ...(workspace.games ?? []).flatMap((game) => game.attachments),
+  ];
 }
