@@ -721,3 +721,18 @@ command. Rust opens only `https://www.ankerzug.net/help` in the system browser
 using the platform handler (`start` on Windows, `open` on macOS, `xdg-open` on
 Linux). Failures appear in the existing UI notice. No arbitrary URL or process
 arguments cross IPC, and no dependency or plugin permission is added.
+
+## PDFs attached to individual training contents
+
+A content block in a session, template or generation baseline can carry one optional
+`attachment` with an immutable ID and filename. Copies may share the same PDF.
+Replacing a file allocates a new ID. The editor renders and validates every page
+before accepting a selection (A4 in either orientation, ±5 mm per dimension,
+at most 1,000,000 bytes). Draft template selections stay local to the draft.
+
+Workspace reads and ordinary saves carry metadata. Newly selected bytes travel
+in the existing save request alongside the metadata. Explicit previews, session
+PDF exports, backups and portable packages can resolve the original bytes. Package
+import assigns new IDs while preserving references shared within a package.
+The two session PDF layouts number attachments in content order, then render
+their pages below numbered headings at the end of the document.

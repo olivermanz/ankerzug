@@ -27,6 +27,7 @@ export interface Competition {
   location: string;
 }
 export interface Content {
+  attachment?: GameAttachment;
   gameId?: string | null;
   id: string;
   startOffsetMinutes: number;

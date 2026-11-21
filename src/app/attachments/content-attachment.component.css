@@ -1,0 +1,19 @@
+:host {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-inline-start: auto;
+}
+.marker {
+  color: var(--green);
+  font-weight: bold;
+}
+dialog {
+  max-height: 90vh;
+}
+.preview {
+  overflow: auto;
+  min-height: 5rem;
+  max-height: 55vh;
+  border: 1px solid var(--line);
+}

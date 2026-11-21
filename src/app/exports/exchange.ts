@@ -98,6 +98,7 @@ export function importPreview(
     items.forEach((block) => {
       block.id = ref(block.id)!;
       if (block.gameId) block.gameId = ref(block.gameId);
+      if (block.attachment) block.attachment.id = ref(block.attachment.id)!;
     });
   const c = packet.cycle;
   // Match full slot IDs: identifiers may themselves contain @.
@@ -183,7 +184,10 @@ export interface TemplatePackage {
 export type TemplateImportPreview = Omit<ImportPreview, 'cycle'>;
 export function templatePackage(templates: Template[], games: Game[] = []): TemplatePackage {
   if (!templates.length) throw new Error('Mindestens eine Vorlage auswählen.');
-  const ids = identifiers(templates);
+  const ids = templates.flatMap((template) => [
+    template.id,
+    ...template.contents.map((block) => block.id),
+  ]);
   if (new Set(ids).size !== ids.length) throw new Error('Doppelte Kennung im Vorlagen-Paket.');
   const closedGames = gameClosure({ cycles: [], templates }, games);
   const errors = validateWorkspace({ cycles: [], templates, games: closedGames });
@@ -215,6 +219,7 @@ export function templateImportPreview(
     for (const block of template.contents) {
       block.id = map.get(block.id)!;
       if (block.gameId) block.gameId = map.get(block.gameId)!;
+      if (block.attachment) block.attachment.id = map.get(block.attachment.id)!;
     }
   }
   remapGames(packet.games ?? [], map);

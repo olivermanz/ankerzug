@@ -83,6 +83,13 @@ Unknown optional numbers are `null`; **0 means an explicitly known zero**.
 Absolute arrow targets can exceed 100. Arrow quantities are distinct from volume,
 intensity, specificity and block load; do not convert one into another.
 
+A block may optionally carry one PDF `attachment` with an `id`, a `filename`
+ending in `.pdf` and a `bytes` array of integers from 0 to 255 containing the
+complete original file. Each page must be A4 in either orientation (±5 mm per
+dimension) and the file may contain at most 1,000,000 bytes. Omit this field
+when the trainer has supplied no attachment. Blocks that reference the same
+attachment ID must provide identical names and bytes.
+
 Template block editors currently hide some metadata, including planned arrow
 counts/load, subcategory, exercise reference and notes. Keep the actual trainer
 instructions in the visible `content` field and equipment in `material`; the
@@ -327,3 +334,15 @@ Use this request together with this document and the session source:
 - Source text and material are preserved; generated measurement fields are null.
 - New templates and blocks use empty `areas` arrays.
 - The JSON file parses, contains no wrapper prose and is at most 20 MiB.
+
+## Maintenance references
+
+This document is self-contained for conversion. Within the repository, its
+contract is implemented by [models.ts](src/app/models.ts),
+[exchange.ts](src/app/exports/exchange.ts),
+[models.rs](src-tauri/src/models.rs),
+[plan_exchange.rs](src-tauri/src/plan_exchange.rs) and
+[storage.rs](src-tauri/src/storage.rs).
+The shared [templates-package-v1.json](fixtures/templates-package-v1.json)
+fixture is checked by Angular and Rust tests. Recheck this reference when the
+package versions or contract change.

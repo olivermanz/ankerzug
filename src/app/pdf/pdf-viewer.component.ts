@@ -10,7 +10,7 @@ import {
   ChangeDetectionStrategy,
 } from '@angular/core';
 import { DataAccessService } from '../data-access.service';
-import { PdfPages, PdfRendererService } from './pdf-viewer';
+import { PdfPages, PdfPreviewBudgetExceeded, PdfRendererService } from './pdf-viewer';
 
 @Component({
   selector: 'app-root',
@@ -19,7 +19,7 @@ import { PdfPages, PdfRendererService } from './pdf-viewer';
     <header class="pdf-toolbar">
       <strong>{{ filename() || 'PDF-Viewer' }}</strong>
       <span>{{ count() }} Seite{{ count() === 1 ? '' : 'n' }}</span>
-      <button (click)="save()" [disabled]="!ready() || saving()">Speichern unter …</button>
+      <button (click)="save()" [disabled]="!canSave() || saving()">Speichern unter …</button>
       <button class="primary" (click)="print()" [disabled]="!ready() || printing()">Drucken</button>
     </header>
     @if (error()) {
@@ -42,6 +42,7 @@ export class PdfViewerComponent implements OnInit, OnDestroy {
   readonly filename = signal('');
   readonly count = signal(0);
   readonly ready = signal(false);
+  readonly canSave = signal(false);
   readonly error = signal('');
   readonly saving = signal(false);
   readonly printing = signal(false);
@@ -84,10 +85,21 @@ export class PdfViewerComponent implements OnInit, OnDestroy {
         sheet.style.page = `pdfSheet${page}`;
         this.printSizes.textContent += `@page pdfSheet${page} { size: ${width}mm ${height}mm; margin: 0; }`;
       }
-      if (!this.destroyed) this.ready.set(true);
+      if (!this.destroyed) {
+        this.ready.set(true);
+        this.canSave.set(true);
+      }
     } catch (error) {
       if (this.destroyed) return;
       this.pages.nativeElement.replaceChildren();
+      if (error instanceof PdfPreviewBudgetExceeded) {
+        this.canSave.set(true);
+        this.error.set(
+          error.message +
+            ' Über „Speichern unter …“ kannst du die PDF-Datei vollständig speichern und extern drucken.',
+        );
+        return;
+      }
       this.error.set(
         'PDF konnte nicht angezeigt werden. Bitte den PDF-Export erneut starten. ' +
           ((error as Error).message || ''),
@@ -118,7 +130,7 @@ export class PdfViewerComponent implements OnInit, OnDestroy {
   }
 
   async save(): Promise<void> {
-    if (!this.ready() || this.saving()) return;
+    if (!this.canSave() || this.saving()) return;
     this.saving.set(true);
     try {
       const path = await this.access.savePdfViewer();
