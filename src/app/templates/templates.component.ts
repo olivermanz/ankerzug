@@ -1,3 +1,4 @@
+import { ContentAttachmentComponent } from '../attachments/content-attachment.component';
 import { Component, computed, inject, signal, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { gameForms } from '../games/games';
@@ -15,7 +16,7 @@ import { LibraryViewDirective } from '../shared/library-view.directive';
 
 @Component({
   selector: 'app-templates',
-  imports: [FormsModule, LibraryViewDirective],
+  imports: [FormsModule, LibraryViewDirective, ContentAttachmentComponent],
   templateUrl: './templates.component.html',
 })
 export class TemplatesComponent {

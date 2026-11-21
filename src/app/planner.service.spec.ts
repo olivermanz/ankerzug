@@ -44,6 +44,67 @@ describe('serialized autosave', () => {
     vi.useRealTimers();
     TestBed.resetTestingModule();
   });
+  it('only writes new referenced content PDFs, retries failed saves and reads persisted bytes on demand', async () => {
+    const workspace = structuredClone((compatibilityBackup as Backup).workspace);
+    service.workspace.set(workspace);
+    const [content] = workspace.templates[0].contents;
+    service.setContentAttachment(content, { filename: 'old.pdf', bytes: [1] });
+    service.setContentAttachment(content, { filename: 'new.pdf', bytes: [2] });
+    service.changed();
+    const attachment = { ...content.attachment! };
+    expect(await service.contentAttachmentBytes(content)).toEqual([2]);
+    access.save.mockRejectedValueOnce(new Error('Storage unavailable'));
+    await service.flush();
+    expect(service.status()).toBe('failed');
+    await service.flush();
+    expect(access.save.mock.calls[1][0]).toEqual(access.save.mock.calls[0][0]);
+    expect(access.save.mock.calls[1][0].attachments).toEqual([{ id: attachment.id, bytes: [2] }]);
+    expect(attachment).not.toHaveProperty('bytes');
+    const read = vi.fn().mockResolvedValue([{ id: attachment.id, bytes: [2] }]);
+    Object.assign(access, { readGameAttachments: read });
+    service.changed();
+    await service.settled();
+    expect(access.save.mock.lastCall![0].attachments).toEqual([]);
+    expect(read).not.toHaveBeenCalled();
+    expect(await service.contentAttachmentBytes(content)).toEqual([2]);
+    expect(read).toHaveBeenCalledWith([attachment.id]);
+    service.setContentAttachment(content, null);
+    expect(content.attachment).toBeUndefined();
+  });
+
+  it('rejects conflicting copies of an attachment before package preview', async () => {
+    const template = structuredClone((compatibilityBackup as Backup).workspace.templates[0]);
+    const block = template.contents[0];
+    block.attachment = { id: 'shared', filename: 'shared.pdf', bytes: [1] };
+    template.contents.push({
+      ...block,
+      id: 'other',
+      attachment: { ...block.attachment, bytes: [2] },
+    });
+    Object.assign(access, {
+      readTemplatePackage: vi.fn().mockResolvedValue({ templates: [template] }),
+    });
+    const before = structuredClone(service.workspace());
+    await expect(service.previewTemplateImport()).rejects.toThrow('Widersprüchliche Daten');
+    expect(service.workspace()).toEqual(before);
+    expect(access.save).not.toHaveBeenCalled();
+  });
+
+  it('keeps unsaved template PDF selections outside unrelated saves until the draft is created', async () => {
+    const template = structuredClone((compatibilityBackup as Backup).workspace.templates[0]);
+    const content = template.contents[0];
+    service.setContentAttachment(content, { filename: 'draft.pdf', bytes: [3] });
+    service.changed();
+    await service.settled();
+    expect(access.save.mock.lastCall![0].attachments).toEqual([]);
+    expect(await service.contentAttachmentBytes(content)).toEqual([3]);
+    service.createTemplate(template);
+    await service.settled();
+    expect(access.save.mock.lastCall![0].attachments).toEqual([
+      { id: content.attachment!.id, bytes: [3] },
+    ]);
+  });
+
   it('keeps manual schedules independent from slot generation and historical exclusions', async () => {
     const cycle = service.workspace().cycles[0];
     service.addSlot(cycle);
