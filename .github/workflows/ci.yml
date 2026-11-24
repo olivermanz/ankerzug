@@ -103,9 +103,19 @@ jobs:
               raise SystemExit(f"Expected native host {os.environ['RUST_TARGET']}, got {host}.")
       - name: Linux desktop prerequisites
         if: runner.os == 'Linux'
+        timeout-minutes: 8
         run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf rpm libarchive-tools
+          apt_options=()
+          if [[ "$RUNNER_ARCH" == X64 ]]; then
+            # Ubuntu x64 runner mirrors can stall package setup.
+            sources="$RUNNER_TEMP/ubuntu.sources"
+            sed 's|mirror+file:/etc/apt/apt-mirrors.txt|https://archive.ubuntu.com/ubuntu/|' \
+              /etc/apt/sources.list.d/ubuntu.sources > "$sources"
+            apt_options+=(-o "Dir::Etc::sourcelist=$sources" -o Dir::Etc::sourceparts=-)
+            apt_options+=(-o Acquire::Retries=1 -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20)
+          fi
+          sudo apt-get "${apt_options[@]}" update
+          sudo apt-get "${apt_options[@]}" install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf rpm libarchive-tools
       - run: pnpm install --frozen-lockfile
       - run: pnpm peers check
       - name: Fetch locked Rust dependencies for license verification
