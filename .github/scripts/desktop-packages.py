@@ -40,8 +40,8 @@ def require_files(directory, expected, actual):
         raise SystemExit("\n".join(mismatch))
 
 
-def run(*args, **kwargs):
-    subprocess.run(args, check=True, **kwargs)
+def run(*args):
+    subprocess.run(args, check=True)
 
 
 def output(*args):
@@ -57,10 +57,7 @@ def verify_linux(package, work, target):
     else:
         expected_arch = "aarch64" if arm64 else "x86_64"
         arch = output("rpm", "-qp", "--queryformat", "%{ARCH}", package)
-        with (work / "payload.cpio").open("w+b") as archive:
-            run("rpm2cpio", package, stdout=archive)
-            archive.seek(0)
-            run("cpio", "--extract", "--make-directories", "--quiet", stdin=archive, cwd=work)
+        run("bsdtar", "-xf", package, "-C", work)
     if arch != expected_arch:
         raise SystemExit(f"{package.name}: expected package architecture {expected_arch}, got {arch}.")
 
