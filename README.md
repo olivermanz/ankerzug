@@ -26,10 +26,17 @@ und offline auf Linux, macOS und Windows – ohne Benutzerkonto oder Cloud.
 
 Öffne die [Downloads auf der Release-Seite](https://github.com/olivermanz/ankerzug/releases)
 und wähle unter **Assets** das Paket für dein Betriebssystem und die passende
-Prozessorarchitektur. `x64`, `x86_64` bzw. `amd64` stehen für Intel-/AMD-64-Bit;
-`arm64` bzw. `aarch64` für ARM, zum Beispiel Apple Silicon. Verwende nur ein
-passendes, tatsächlich angebotenes Paket. Die Archive **Source code** enthalten
-Quellcode und sind keine Installationspakete.
+Prozessorarchitektur. Bei älteren Releases kann die Auswahl kleiner sein.
+
+| Betriebssystem | Prozessor                | Datei unter **Assets**             |
+| -------------- | ------------------------ | ---------------------------------- |
+| Windows        | Intel oder AMD (x64)     | `*_x64_en-US.msi`                  |
+| Windows        | ARM64, z. B. Snapdragon  | `*_arm64-setup.exe`                |
+| macOS          | Intel oder Apple Silicon | `*_universal.dmg`                  |
+| Linux          | Intel oder AMD (x86-64)  | `*_amd64.deb` oder `*.x86_64.rpm`  |
+| Linux          | ARM64 (AArch64)          | `*_arm64.deb` oder `*.aarch64.rpm` |
+
+Die Archive **Source code** enthalten den Quellcode.
 
 Die Beta ist noch nicht auf allen Betriebssystemversionen und Linux-Distributionen
 abschließend geprüft. Beachte die Hinweise beim jeweiligen Release. Für die
@@ -38,7 +45,8 @@ fertige App brauchst du keine Entwicklungswerkzeuge.
 ### Linux
 
 Für Debian/Ubuntu-basierte Systeme gibt es ein **.deb**-Paket, für RPM-basierte
-Systeme wie Fedora ein **.rpm**-Paket.
+Systeme wie Fedora ein **.rpm**-Paket. Mit `uname -m` kannst du prüfen,
+ob dein Rechner `x86_64` oder `aarch64` verwendet.
 
 1. Lade das passende Paket herunter.
 2. Öffne es mit der Paketverwaltung deiner Distribution und wähle **Installieren**.
@@ -59,7 +67,7 @@ Systeme wie Fedora ein **.rpm**-Paket.
 
 ### macOS
 
-1. Lade das macOS-Disk-Image mit der Endung **.dmg** herunter.
+1. Lade das universelle **.dmg** für Intel und Apple Silicon herunter.
 2. Öffne es per Doppelklick im Finder.
 3. Ziehe **Ankerzug.app** in den Ordner **Programme** und öffne die App dort.
 
@@ -71,7 +79,8 @@ Siehe dazu [Apples Anleitung zum Öffnen solcher Apps](https://support.apple.com
 
 ### Windows
 
-1. Lade den Windows-Installer mit der Endung **.msi** herunter.
+1. Lade die **MSI-Datei** für x64 oder die **Setup-EXE** für ARM64 herunter.
+   Den Systemtyp findest du unter **Einstellungen → System → Info**.
 2. Öffne ihn per Doppelklick und folge dem Installationsassistenten.
 3. Starte **Ankerzug** über das Startmenü.
 
