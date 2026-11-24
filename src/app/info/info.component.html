@@ -1,0 +1,92 @@
+<div appLibraryView>
+  <div class="library-overview" [attr.inert]="selected() ? '' : null">
+    <section class="panel settings-info" aria-label="Anwendungsinformationen">
+      <div class="section-heading">
+        <div>
+          <div class="eyebrow">ANKERZUG</div>
+          <h1>Info</h1>
+          <p>Anwendungsinformationen, Lizenz- und Drittanbieter-Hinweise.</p>
+        </div>
+      </div>
+      <div class="application-metadata">
+        <h2>Ankerzug</h2>
+        <dl>
+          <div>
+            <dt>Version</dt>
+            <dd>{{ version() }}</dd>
+          </div>
+          <div>
+            <dt>Urheber</dt>
+            <dd>Copyright Oliver Manz</dd>
+          </div>
+          <div>
+            <dt>Lizenz</dt>
+            <dd>GNU General Public License v3.0 (GPL-3.0-only)</dd>
+          </div>
+        </dl>
+      </div>
+      <section class="legal-section">
+        <h3>Lizenz</h3>
+        <p>
+          Ankerzug-eigene Materialien stehen unter der GNU General Public License v3.0
+          (GPL-3.0-only).
+        </p>
+        <button
+          #projectButton
+          class="license-link"
+          (click)="open(documents.project, projectButton)"
+        >
+          {{ documents.project.title }}
+        </button>
+      </section>
+      <section class="legal-section">
+        <h3>Haftungshinweis</h3>
+        <p class="legal-notice">
+          Die Software wird, soweit rechtlich zulässig, ohne Gewährleistung bereitgestellt. Eine
+          Haftung für Schäden aus der Nutzung, Nichtverfügbarkeit oder fehlerhaften Ergebnissen ist
+          im gesetzlich zulässigen Umfang ausgeschlossen oder beschränkt.
+        </p>
+        <p class="legal-notice">
+          Trainingsplanung ersetzt keine unabhängige fachliche, medizinische oder
+          sicherheitsbezogene Beurteilung. Die Verantwortung für Auswahl, Durchführung und sichere
+          Anpassung des Trainings verbleibt bei den Nutzenden.
+        </p>
+      </section>
+      <section class="legal-section">
+        <h3>Drittanbieter-Lizenzen</h3>
+        <p>
+          Das vollständige Offline-Dokument enthält Lizenzen, Urheberhinweise und erforderliche
+          NOTICE-Dateien aller mitgelieferten Abhängigkeiten sowie der Schriftart Noto Sans. Diese
+          Bestandteile stehen unter ihren jeweils genannten Lizenzen, nicht automatisch unter der
+          GNU General Public License v3.0 (GPL-3.0-only).
+        </p>
+        <button
+          #thirdPartyButton
+          class="license-link"
+          (click)="open(documents.thirdParty, thirdPartyButton)"
+        >
+          {{ documents.thirdParty.title }}
+        </button>
+      </section>
+    </section>
+  </div>
+  @if (selected(); as document) {
+    <section
+      class="panel settings-info"
+      aria-labelledby="license-title"
+      animate.leave="library-editor-leave"
+    >
+      <button (click)="back()">← Zurück</button>
+      <h1 id="license-title" tabindex="-1" data-library-editor-title>{{ document.title }}</h1>
+      @if (license.isLoading()) {
+        <p role="status">Lizenztext wird geladen …</p>
+      } @else if (license.error()) {
+        <p role="alert">Der Lizenztext konnte nicht geladen werden.</p>
+      } @else if (license.hasValue()) {
+        <pre class="license-text" tabindex="0" aria-labelledby="license-title">{{
+          license.value()
+        }}</pre>
+      }
+    </section>
+  }
+</div>
