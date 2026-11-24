@@ -113,6 +113,9 @@ The first MVP provides pnpm scripts for frontend development/builds, Tauri devel
   `pnpm licenses:check` compares that output byte-for-byte before packaging in CI.
   Git attributes keep the generated notices checked out with LF line endings on
   every platform so Windows checkout conversion does not invalidate the check.
+- The Info view loads the complete project license and third-party notices from
+  bundled frontend assets and renders them as scrollable plain text in the
+  main webview. The sidebar remains available while either document is open.
 - Dual SPDX expressions are retained as supplied by component metadata. Apache-2.0
   components include their shipped license and any shipped NOTICE file. Noto Sans
   is attributed under SIL Open Font License 1.1 with the unmodified OFL text.

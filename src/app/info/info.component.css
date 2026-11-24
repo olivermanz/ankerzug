@@ -1,0 +1,62 @@
+.settings-info {
+  max-width: 760px;
+}
+.application-metadata {
+  border-left: 4px solid var(--green);
+  padding: 4px 0 4px 14px;
+}
+.application-metadata h2,
+.legal-section h3 {
+  margin: 0 0 8px;
+}
+.application-metadata dl {
+  margin: 0;
+}
+.application-metadata dl > div {
+  display: grid;
+  grid-template-columns: minmax(110px, 150px) minmax(0, 1fr);
+  gap: 12px;
+  padding: 4px 0;
+}
+.application-metadata dt {
+  color: var(--muted);
+}
+.application-metadata dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.legal-section {
+  border-top: 1px solid var(--line);
+  margin-top: 20px;
+  padding-top: 16px;
+}
+.legal-section p,
+.legal-notice {
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.license-link {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  text-decoration: underline;
+  text-align: start;
+  color: var(--green);
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.license-text {
+  max-height: max(12rem, calc(100dvh - 12rem));
+  margin: 0;
+  padding: 10px;
+  border: 1px solid var(--line);
+  background: white;
+  color: #202020;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
