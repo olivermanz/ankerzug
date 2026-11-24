@@ -228,63 +228,7 @@
       </section>
     }
     @if (tab() === 'info') {
-      <section class="panel settings-info" aria-label="Anwendungsinformationen">
-        <div class="section-heading">
-          <div>
-            <div class="eyebrow">ANKERZUG</div>
-            <h1>Info</h1>
-            <p>Anwendungsinformationen, Lizenz- und Drittanbieter-Hinweise.</p>
-          </div>
-        </div>
-        <div class="application-metadata">
-          <h2>Ankerzug</h2>
-          <dl>
-            <div>
-              <dt>Version</dt>
-              <dd>{{ appVersion() }}</dd>
-            </div>
-            <div>
-              <dt>Urheber</dt>
-              <dd>Copyright Oliver Manz</dd>
-            </div>
-            <div>
-              <dt>Lizenz</dt>
-              <dd>GNU General Public License v3.0 (GPL-3.0-only)</dd>
-            </div>
-          </dl>
-        </div>
-        <section class="legal-section">
-          <h3>Lizenz</h3>
-          <p>
-            Ankerzug-eigene Materialien stehen unter der GNU General Public License v3.0
-            (GPL-3.0-only).
-          </p>
-          <a [href]="projectLicenseUrl">Vollständige Projektlizenz</a>
-        </section>
-        <section class="legal-section">
-          <h3>Haftungshinweis</h3>
-          <p class="legal-notice">
-            Die Software wird, soweit rechtlich zulässig, ohne Gewährleistung bereitgestellt. Eine
-            Haftung für Schäden aus der Nutzung, Nichtverfügbarkeit oder fehlerhaften Ergebnissen
-            ist im gesetzlich zulässigen Umfang ausgeschlossen oder beschränkt.
-          </p>
-          <p class="legal-notice">
-            Trainingsplanung ersetzt keine unabhängige fachliche, medizinische oder
-            sicherheitsbezogene Beurteilung. Die Verantwortung für Auswahl, Durchführung und sichere
-            Anpassung des Trainings verbleibt bei den Nutzenden.
-          </p>
-        </section>
-        <section class="legal-section">
-          <h3>Drittanbieter-Lizenzen</h3>
-          <p>
-            Das vollständige Offline-Dokument enthält Lizenzen, Urheberhinweise und erforderliche
-            NOTICE-Dateien aller mitgelieferten Abhängigkeiten sowie der Schriftart Noto Sans. Diese
-            Bestandteile stehen unter ihren jeweils genannten Lizenzen, nicht automatisch unter der
-            GNU General Public License v3.0 (GPL-3.0-only).
-          </p>
-          <a [href]="thirdPartyNoticesUrl">Vollständige Drittanbieter-Hinweise</a>
-        </section>
-      </section>
+      <app-info [version]="appVersion()" />
     }
     @if (tab() === 'templates') {
       <app-templates />

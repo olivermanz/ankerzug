@@ -685,48 +685,6 @@ input[type='color'] {
 .shared-settings h3 {
   margin-bottom: 8px;
 }
-.settings-info {
-  max-width: 760px;
-}
-.application-metadata {
-  border-left: 4px solid var(--green);
-  padding: 4px 0 4px 14px;
-}
-.application-metadata h2,
-.legal-section h3 {
-  margin: 0 0 8px;
-}
-.application-metadata dl {
-  margin: 0;
-}
-.application-metadata dl > div {
-  display: grid;
-  grid-template-columns: minmax(110px, 150px) minmax(0, 1fr);
-  gap: 12px;
-  padding: 4px 0;
-}
-.application-metadata dt {
-  color: var(--muted);
-}
-.application-metadata dd {
-  margin: 0;
-  overflow-wrap: anywhere;
-}
-.legal-section {
-  border-top: 1px solid var(--line);
-  margin-top: 20px;
-  padding-top: 16px;
-}
-.legal-section p,
-.legal-notice {
-  line-height: 1.6;
-  overflow-wrap: anywhere;
-}
-.legal-section a {
-  color: var(--green);
-  font-weight: 700;
-  overflow-wrap: anywhere;
-}
 .empty-inline {
   padding: 18px 12px;
   color: var(--muted);

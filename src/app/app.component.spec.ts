@@ -513,14 +513,61 @@ describe('MVP UI acceptance', () => {
     expect(
       root.querySelector('.settings-info')?.querySelectorAll('input, select, textarea'),
     ).toHaveLength(0);
-    const links = [...root.querySelectorAll('a')].map((link) => link.getAttribute('href'));
-    expect(links).toContain('/licenses/ankerzug/LICENSE');
-    expect(links).toContain('/licenses/THIRD_PARTY_NOTICES.md');
     expect(root.textContent).toContain('Browser-Vorschau nicht verfügbar');
 
     fixture.componentInstance.tab.set('planning-template');
     await render();
     expect(fixture.nativeElement.querySelectorAll('input[type="color"]')).toHaveLength(12);
+  });
+  it.each([
+    ['Vollständige Projektlizenz', '/licenses/ankerzug/LICENSE'],
+    ['Vollständige Drittanbieter-Hinweise', '/licenses/THIRD_PARTY_NOTICES.md'],
+  ])('opens %s inside Info and returns focus to its button', async (title, url) => {
+    const licenseText = 'Lizenztext\n\n<example>unverändert</example>';
+    const fetchLicense = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(new Response(licenseText, { headers: { 'Content-Type': 'text/html' } }));
+    const root = fixture.nativeElement as HTMLElement;
+    const sidebar = root.querySelector('.sidebar');
+
+    await click('Info');
+    const location = window.location.href;
+    await click(title);
+    expect(fetchLicense).toHaveBeenCalledWith(
+      url,
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    );
+    expect(root.querySelector('.license-text')?.textContent).toBe(licenseText);
+    expect(root.querySelector('.license-text example')).toBeNull();
+    expect(document.activeElement?.textContent?.trim()).toBe(title);
+    expect(root.querySelector('.library-overview')?.hasAttribute('inert')).toBe(true);
+    expect(root.querySelector('.sidebar')).toBe(sidebar);
+    expect(sidebar?.querySelector('button.active')?.textContent?.trim()).toBe('Info');
+    expect(window.location.href).toBe(location);
+
+    await click('← Zurück');
+    expect(root.querySelector('.library-overview')?.hasAttribute('inert')).toBe(false);
+    expect(document.activeElement?.textContent?.trim()).toBe(title);
+    await click(title);
+    await click('Einstellungen');
+    expect(root.querySelector('app-info')).toBeNull();
+    await click('Info');
+    expect(root.querySelector('.license-text')).toBeNull();
+  });
+  it.each([
+    ['returns 404', new Response(null, { status: 404 })],
+    ['falls back to the app shell', new Response('<!DOCTYPE html><app-root></app-root>')],
+  ])('keeps the return action available if the license request %s', async (_scenario, response) => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(response);
+    const root = fixture.nativeElement as HTMLElement;
+
+    await click('Info');
+    await click('Vollständige Projektlizenz');
+    expect(root.querySelector('app-info [role="alert"]')?.textContent).toContain(
+      'Der Lizenztext konnte nicht geladen werden.',
+    );
+    await click('← Zurück');
+    expect(root.querySelector('.library-overview')?.hasAttribute('inert')).toBe(false);
   });
   it('renders distinct backup feedback for saved, cancelled and failed native saves', async () => {
     fixture.componentInstance.planner.ready.set(true);
