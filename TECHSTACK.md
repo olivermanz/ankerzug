@@ -26,7 +26,8 @@ pnpm is the standard entry point for frontend and desktop workflows. It orchestr
 - Linux desktop.
 - Android, iOS, and a separately deployed web application are outside the initial scope.
 - Build and validate release artifacts on the corresponding operating system.
-- Confirm minimum OS versions, supported Linux distributions and package formats, and CPU architectures before release; these are not yet fixed.
+- CI targets x64 and ARM64 on Windows and Linux, and Intel and Apple Silicon on macOS.
+  Minimum OS versions and supported Linux distributions still require installed-app acceptance.
 - Keep platform-specific code isolated and provide equivalent behavior on all supported systems.
 
 Windows development requires the Rust MSVC toolchain, Microsoft C++ Build Tools, and WebView2. macOS development requires Rust and Apple's Xcode tooling. Linux development requires Rust/Cargo, native C/C++ build tools, pkg-config, and distribution-specific Tauri development libraries, including WebKitGTK 4.1, GTK 3, and OpenSSL. Follow the official Tauri prerequisites for installation details and distribution-specific packages.
@@ -72,7 +73,10 @@ See ARCHITECTURE.md for the detailed responsibility split, business model contra
   repository-content write permission; pull-request jobs retain read permission.
 - Use the GitHub runner's bundled CLI for release creation and generated notes;
   no application dependency, update infrastructure or signing secret is introduced.
-  Assets are Linux DEB/RPM, Windows MSI (Tauri's WiX bundler) and macOS DMG.
+  The seven versioned assets are Linux DEB and RPM for each architecture,
+  Windows x64 MSI (WiX), Windows ARM64 EXE (NSIS), and one universal macOS DMG.
+  CI checks the Linux and Windows ARM64 executables in their packages and both
+  macOS executable slices. The release job requires the complete asset set.
   macOS builds use ad-hoc signing; Apple certificate signing/notarization and
   Windows certificate signing remain unconfigured. Automated publication does not
   close the separately documented native acceptance gates.
@@ -224,4 +228,4 @@ byte structure, IDs and references; Angular performs full PDF usability checks.
 - pnpm-workspace.yaml explicitly allows build scripts for Angular's native watcher, esbuild, LMDB cache and msgpackr helper; core-js's informational postinstall is disabled. Unreviewed build scripts continue to fail installation.
 - Angular's Oxc WASM fallback already requires prerelease emnapi 2. Its alpha.3 pins conflict with the runtime's alpha.4 peer minimum. Scoped overrides align only that binding's core/runtime at alpha.4; verify the WASM fallback and remove the overrides when upstream fixes its pins. This is a build-time transitive compatibility exception, not a production dependency or blanket peer-check suppression.
 - Keep Tauri on version 2, with tauri-build 2.7.4, dialog 2.8.4 and optional exploration driver 1.5.1. No business-data, database, backup or exchange-format version changes are introduced by this dependency refresh.
-- CI reads Node from `.node-version`, pnpm from `package.json` and Rust from `rust-toolchain.toml`. pnpm 12 records its own package-manager resolution in a separate YAML document within pnpm-lock.yaml. Updated action releases support pnpm 12 and the current artifact upload/download pair; frozen pnpm installs, locked Cargo checks and the three-platform packaging/release gates remain required.
+- CI reads Node from `.node-version`, pnpm from `package.json` and Rust from `rust-toolchain.toml`. pnpm 12 records its own package-manager resolution in a separate YAML document within pnpm-lock.yaml. Updated action releases support pnpm 12 and the current artifact upload/download pair; frozen pnpm installs, locked Cargo checks and the six-runner validation and seven-package release gates remain required.
