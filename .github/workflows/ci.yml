@@ -54,26 +54,58 @@ jobs:
       matrix:
         include:
           - os: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
             bundles: deb,rpm
-          - os: windows-latest
+          - os: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+            bundles: deb,rpm
+          - os: windows-2025
+            target: x86_64-pc-windows-msvc
             bundles: msi
-          - os: macos-latest
+          - os: windows-11-arm
+            target: aarch64-pc-windows-msvc
+            bundles: nsis
+          - os: macos-15-intel
+            target: x86_64-apple-darwin
+          - os: macos-15
+            target: aarch64-apple-darwin
+            rust-targets: aarch64-apple-darwin,x86_64-apple-darwin
+            package-target: universal-apple-darwin
             bundles: dmg
     runs-on: ${{ matrix.os }}
+    env:
+      RUST_TARGET: ${{ matrix.target }}
+      PACKAGE_TARGET: ${{ matrix.package-target || matrix.target }}
+      RELEASE_VERSION: ${{ needs.version.outputs.version }}
     steps:
       - uses: actions/checkout@v7.0.1
       - uses: pnpm/action-setup@v6.1.0
       - uses: actions/setup-node@v7.1.0
         with:
           node-version-file: .node-version
+          architecture: ${{ startsWith(matrix.target, 'aarch64-') && 'arm64' || 'x64' }}
           cache: pnpm
       - uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: ${{ needs.version.outputs.rust-toolchain }}
+          toolchain: ${{ needs.version.outputs.rust-toolchain }}-${{ matrix.target }}
           components: rustfmt, clippy
+          targets: ${{ matrix.rust-targets || matrix.target }}
+      - name: Verify native Rust host
+        shell: python
+        run: |
+          import os
+          import subprocess
+
+          host = next(line.removeprefix("host: ") for line in
+                      subprocess.check_output(["rustc", "-vV"], text=True).splitlines()
+                      if line.startswith("host: "))
+          if host != os.environ["RUST_TARGET"]:
+              raise SystemExit(f"Expected native host {os.environ['RUST_TARGET']}, got {host}.")
       - name: Linux desktop prerequisites
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf rpm rpm2cpio cpio
       - run: pnpm install --frozen-lockfile
       - run: pnpm peers check
       - name: Fetch locked Rust dependencies for license verification
@@ -88,18 +120,23 @@ jobs:
       - run: pnpm rust:check
       - name: Compile and test optional native exploration infrastructure
         run: cargo test --manifest-path src-tauri/Cargo.toml --locked --features exploration exploration::tests
-      - run: pnpm desktop:build --bundles ${{ matrix.bundles }} -- --locked
+      - name: Build Tauri release packages
+        if: matrix.bundles
+        shell: bash
         env:
+          BUNDLES: ${{ matrix.bundles }}
           APPLE_SIGNING_IDENTITY: '-'
+        run: pnpm desktop:build --target "$PACKAGE_TARGET" --bundles "$BUNDLES" -- --locked
+      - name: Verify and stage release packages
+        if: matrix.bundles
+        shell: pwsh
+        run: python .github/scripts/desktop-packages.py stage $env:RELEASE_VERSION $env:PACKAGE_TARGET
       - uses: actions/upload-artifact@v7.0.2
+        if: matrix.bundles
         with:
-          name: ankerzug-${{ runner.os }}
+          name: ankerzug-${{ env.PACKAGE_TARGET }}
           if-no-files-found: error
-          path: |
-            src-tauri/target/release/bundle/deb/*.deb
-            src-tauri/target/release/bundle/rpm/*.rpm
-            src-tauri/target/release/bundle/msi/*.msi
-            src-tauri/target/release/bundle/dmg/*.dmg
+          path: desktop-packages/
   release:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: [version, desktop]
@@ -110,6 +147,7 @@ jobs:
       group: desktop-release
       cancel-in-progress: false
     steps:
+      - uses: actions/checkout@v7.0.1
       - uses: actions/download-artifact@v8.0.2
         with:
           pattern: ankerzug-*
@@ -121,11 +159,8 @@ jobs:
           RELEASE_VERSION: ${{ needs.version.outputs.version }}
           RELEASE_COMMIT: ${{ github.sha }}
         run: |
-          mapfile -d '' assets < <(find release-assets -type f \( -name '*.deb' -o -name '*.rpm' -o -name '*.msi' -o -name '*.dmg' \) -print0)
-          if [ "${#assets[@]}" -ne 4 ]; then
-            echo "::error::Expected Linux DEB/RPM, Windows MSI and macOS DMG packages."
-            exit 1
-          fi
+          python3 .github/scripts/desktop-packages.py release "$RELEASE_VERSION" > "$RUNNER_TEMP/desktop-assets.txt"
+          mapfile -t assets < "$RUNNER_TEMP/desktop-assets.txt"
           gh release create "v${RELEASE_VERSION}" "${assets[@]}" \
             --target "$RELEASE_COMMIT" \
             --title "Ankerzug ${RELEASE_VERSION}" \
