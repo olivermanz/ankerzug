@@ -208,6 +208,8 @@ describe('MVP UI acceptance', () => {
     ).toEqual(['Alter Typ', '']);
     await fill('Typ', 'KT');
     expect(session.contents[0].category).toBe('KT');
+    await app.planner.flush();
+    expect(stored.workspace.cycles[0].sessions[0].contents[0].category).toBe('KT');
   });
 
   it('creates a manual session from the empty list and retries a failed save in the same dialog', async () => {
