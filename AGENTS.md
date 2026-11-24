@@ -7,7 +7,7 @@ start of a macrocycle through a main competition. It targets Windows, macOS, and
 Linux with Angular, TypeScript, Rust, and Tauri 2.
 
 The repository contains the first Angular/Tauri/SQLite MVP, manifests, lockfiles,
-toolchain configuration, tests and a three-platform CI workflow. Cross-platform
+toolchain configuration, tests and a six-runner desktop CI workflow. Cross-platform
 native release acceptance is still pending. Treat the stack and architecture below as approved plans;
 inspect the repository again before assuming an implementation or command exists.
 
@@ -145,7 +145,8 @@ Actual commands from package.json:
 - `pnpm format` / `pnpm format:check`: Prettier frontend/Markdown format/check.
 - `pnpm desktop`: Tauri development application.
 - `pnpm desktop:build -- --locked`: native production packaging with locked Cargo dependencies.
-- `pnpm desktop:build --bundles deb,rpm -- --locked`: Linux packages; CI uses msi on Windows and dmg on macOS.
+- `pnpm desktop:build --bundles deb,rpm -- --locked`: Linux packages.
+  CI uses MSI for Windows x64, NSIS for Windows ARM64, and a universal DMG for macOS.
 - `pnpm rust:test`: locked Cargo tests.
 - `pnpm rust:check`: locked Clippy for all targets, warnings treated as errors.
 - `pnpm rust:format`: rustfmt check.
