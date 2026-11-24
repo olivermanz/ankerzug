@@ -251,6 +251,16 @@ results apply only to the commit, platform and scope they actually tested.
 The workflows below define acceptance checks, and ARCHITECTURE.md defines compatibility contracts.
 Deferred features remain requirements rather than accepted implementation claims.
 
+### In-app license documents
+
+Open **Info** and select **Vollständige Projektlizenz**. Verify that the overview
+slides left, **Info** stays selected in the sidebar, and the full license text
+scrolls within its white panel. Select **Zurück** and verify that the document
+slides right and focus returns to the original control. Repeat with
+**Vollständige Drittanbieter-Hinweise**, then use the sidebar to switch pages
+while the document is open. Reopen either document and close the application
+using the operating system's window controls.
+
 Version 1 covers macrocycle exchange, standalone session-template exchange,
 Markdown/CSV exports, plan/session PDFs and printing, and calendar export on top
 of the existing planning application. Training games are the separately specified

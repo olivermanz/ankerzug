@@ -4,6 +4,7 @@ import { gameForms } from './games/games';
 import { GamesComponent } from './games/games.component';
 import { TemplatesComponent } from './templates/templates.component';
 import { ExportsComponent } from './exports/exports.component';
+import { InfoComponent } from './info/info.component';
 import {
   Component,
   HostListener,
@@ -78,6 +79,7 @@ import {
     DateFieldComponent,
     PlanningViewsComponent,
     ExportsComponent,
+    InfoComponent,
   ],
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './app.component.html',
@@ -93,8 +95,6 @@ export class AppComponent implements OnInit {
   readonly gameForms = gameForms;
   readonly planner = inject(PlannerService);
   readonly appVersion = signal('In der Browser-Vorschau nicht verfügbar');
-  readonly projectLicenseUrl = '/licenses/ankerzug/LICENSE';
-  readonly thirdPartyNoticesUrl = '/licenses/THIRD_PARTY_NOTICES.md';
   readonly exportingPdf = signal(false);
   readonly creatingBackup = signal(false);
   async exportSessionPdf(cycle: MacroCycle, session: Session): Promise<void> {
