@@ -15,6 +15,10 @@ describe('MVP UI acceptance', () => {
     load: ReturnType<typeof vi.fn>;
     save: ReturnType<typeof vi.fn>;
     backup: ReturnType<typeof vi.fn>;
+    selectBackup: ReturnType<typeof vi.fn>;
+    discardZipBackup: ReturnType<typeof vi.fn>;
+    readBackupPdf: ReturnType<typeof vi.fn>;
+    applyZipBackup: ReturnType<typeof vi.fn>;
     loadWelcomeModalVersion: ReturnType<typeof vi.fn>;
   };
   async function render(): Promise<void> {
@@ -61,7 +65,11 @@ describe('MVP UI acceptance', () => {
         };
         return structuredClone(stored);
       }),
-      backup: vi.fn().mockResolvedValue('/chosen/ankerzug.json'),
+      backup: vi.fn().mockResolvedValue('/chosen/ankerzug.ankerzug.zip'),
+      selectBackup: vi.fn().mockResolvedValue(null),
+      discardZipBackup: vi.fn().mockResolvedValue(undefined),
+      readBackupPdf: vi.fn(),
+      applyZipBackup: vi.fn(),
     };
     TestBed.configureTestingModule({
       imports: [AppComponent],
@@ -574,7 +582,9 @@ describe('MVP UI acceptance', () => {
     await click('Backup erstellen');
     await Promise.resolve();
     await render();
-    expect(fixture.componentInstance.message()).toBe('Backup gespeichert: /chosen/ankerzug.json');
+    expect(fixture.componentInstance.message()).toBe(
+      'Backup gespeichert: /chosen/ankerzug.ankerzug.zip',
+    );
     access.backup.mockResolvedValueOnce(null);
     await click('Backup erstellen');
     await Promise.resolve();
@@ -1352,10 +1362,66 @@ describe('MVP UI acceptance', () => {
         formatVersion: version,
         workspace: { cycles: [], templates: [] },
       });
-      const input = { files: [{ size: text.length, text: async () => text }], value: 'selected' };
-      await fixture.componentInstance.restore({ target: input } as unknown as Event);
+      access.selectBackup.mockResolvedValue({ kind: 'legacy', contents: text });
+      await click('Backup wiederherstellen');
       expect(restore).toHaveBeenCalledWith(text);
-      expect(input.value).toBe('');
     },
   );
+
+  it('requires confirmation before reading ZIP attachments and discards cancelled selections', async () => {
+    access.selectBackup.mockResolvedValue({
+      kind: 'zip',
+      token: 42,
+      cycles: 1,
+      templates: 2,
+      games: 3,
+      pdfs: [{ id: 'attached', filename: 'Anlage.pdf', content: true }],
+    });
+    vi.mocked(window.confirm).mockReturnValueOnce(false);
+    await click('Backup wiederherstellen');
+    expect(window.confirm).toHaveBeenCalledWith(
+      expect.stringContaining('1 Makrozyklen und 2 Vorlagen sowie 3 Spiele'),
+    );
+    expect(access.readBackupPdf).not.toHaveBeenCalled();
+    expect(access.applyZipBackup).not.toHaveBeenCalled();
+    expect(access.discardZipBackup).toHaveBeenCalledWith(42);
+  });
+
+  it('keeps the current workspace when a staged ZIP attachment cannot be read', async () => {
+    access.selectBackup.mockResolvedValue({
+      kind: 'zip',
+      token: 42,
+      cycles: 1,
+      templates: 2,
+      games: 3,
+      pdfs: [{ id: 'attached', filename: 'Anlage.pdf', content: true }],
+    });
+    access.readBackupPdf.mockRejectedValue({ code: 'invalidInput', message: 'PDF beschädigt' });
+    await click('Backup wiederherstellen');
+    expect(access.readBackupPdf).toHaveBeenCalledWith(42, 'attached');
+    expect(access.discardZipBackup).toHaveBeenCalledWith(42);
+    expect(access.applyZipBackup).not.toHaveBeenCalled();
+    await vi.waitFor(() => expect(fixture.componentInstance.message()).toBe('PDF beschädigt'));
+  });
+
+  it('applies a confirmed ZIP and shows the restored workspace', async () => {
+    const workspace = structuredClone(compatibilityBackup.workspace) as Snapshot['workspace'];
+    access.selectBackup.mockResolvedValue({
+      kind: 'zip',
+      token: 42,
+      cycles: 1,
+      templates: 1,
+      games: 0,
+      pdfs: [],
+    });
+    access.applyZipBackup.mockResolvedValue({ revision: 1, workspace });
+    await click('Backup wiederherstellen');
+    expect(access.applyZipBackup).toHaveBeenCalledWith(42, 0);
+    expect(fixture.componentInstance.planner.workspace().cycles[0].name).toBe(
+      workspace.cycles[0].name,
+    );
+    await vi.waitFor(() =>
+      expect(fixture.componentInstance.message()).toBe('Backup wiederhergestellt.'),
+    );
+  });
 });

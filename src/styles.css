@@ -1041,3 +1041,11 @@ summary {
     transform: translateX(100%);
   }
 }
+
+.backup-restore-status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}

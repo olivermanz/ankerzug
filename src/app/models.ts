@@ -213,6 +213,20 @@ export interface SaveInput {
   workspace: Workspace;
   attachments?: Array<{ id: string; bytes: number[] }>;
 }
+export interface BackupCounts {
+  cycles: number;
+  templates: number;
+  games: number;
+}
+
+export interface ZipBackupSelection extends BackupCounts {
+  kind: 'zip';
+  token: number;
+  pdfs: { id: string; filename: string; content: boolean }[];
+}
+
+export type BackupSelection = ZipBackupSelection | { kind: 'legacy'; contents: string };
+
 export interface Backup {
   formatVersion: 2;
   workspace: Workspace;

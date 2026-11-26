@@ -108,7 +108,7 @@ pnpm explore native '{"action":"windows"}'
 pnpm explore native '{"action":"focus","window":"0x123456"}'
 pnpm explore native '{"action":"screenshot","window":"0x123456"}'
 pnpm explore native '{"action":"keys","window":"0x123456","keys":"ctrl+a"}'
-pnpm explore native '{"action":"type","window":"0x123456","text":"/absolute/test/run/backup.json"}'
+pnpm explore native '{"action":"type","window":"0x123456","text":"/absolute/test/run/backup.ankerzug.zip"}'
 pnpm explore native '{"action":"keys","window":"0x123456","keys":"Return"}'
 pnpm explore native '{"action":"keys","window":"0x123456","keys":"Escape"}'
 pnpm explore native '{"action":"close","window":"0x123456"}'
@@ -184,7 +184,7 @@ For each charter, cover the normal workflow, boundaries, cancellation and recove
 | Autosave           | Rapid changes, invalid input correction, write feedback, restart, native close while edits are pending                           |
 | Exchange/recovery  | Native save/open cancellation and overwrite, macrocycle/template/game packages, invalid/future packages, backup/restore/recovery |
 | Games/PDF          | CRUD and validation, attachments, session/template usage, multiple PDF windows, viewer save/cancel/print                         |
-| Compatibility      | Both backup versions, preserved retired fields, unknown versus zero values, absolute arrow counts above 100                      |
+| Compatibility      | ZIP v3 and legacy JSON v1/v2, preserved retired fields, unknown versus zero values, absolute arrow counts above 100              |
 
 Treat planned group data as the product scope. Do not invent individual measured
 load, results evaluation, goal-achievement tracking or retired weekly comparisons.
@@ -224,6 +224,17 @@ pnpm explore:smoke
 CI runs the CLI contract tests and compiles/tests the optional Rust feature on all
 three operating systems. Interactive exploration and OS-dialog acceptance require
 a desktop session and are not claimed by those CI checks.
+
+## ZIP backup acceptance
+
+On Windows, macOS and Linux, use an isolated workspace with both a game PDF and
+a shared training-content PDF. Save a `*.ankerzug.zip` backup and inspect
+`backup.json` plus the separate PDF entries. Make a recognizable edit, restore
+the ZIP via the native picker, and verify the restored PDFs and plannable data
+after a process restart. Use **Stand vor Wiederherstellung** to verify the edit
+and earlier attachments can be recovered. Repeat with the v1 and v2 JSON fixtures.
+Cancel the picker and the confirmation, then try a ZIP with a damaged or missing
+PDF and verify the active workspace and latest recovery copy are unaffected.
 
 ## Initial host validation (2026-10-22)
 

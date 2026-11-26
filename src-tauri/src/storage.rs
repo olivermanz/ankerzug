@@ -6,7 +6,7 @@ use std::{
     path::Path,
 };
 
-const CONTENT_PDF_LIMIT: usize = 1_000_000;
+pub(crate) const CONTENT_PDF_LIMIT: usize = 1_000_000;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -22,7 +22,7 @@ pub struct AppError {
     pub message: String,
 }
 pub type Result<T> = std::result::Result<T, AppError>;
-fn invalid(message: &str) -> AppError {
+pub(crate) fn invalid(message: &str) -> AppError {
     AppError {
         code: ErrorCode::InvalidInput,
         message: message.into(),
@@ -402,7 +402,7 @@ fn attachments_mut(workspace: &mut Workspace) -> impl Iterator<Item = &mut GameA
         )
 }
 
-fn validate_content_pdf(filename: &str, bytes: &[u8]) -> Result<()> {
+pub(crate) fn validate_content_pdf(filename: &str, bytes: &[u8]) -> Result<()> {
     require(
         bytes.len() <= CONTENT_PDF_LIMIT,
         "Anlagen dürfen höchstens 1 MB groß sein.",
@@ -410,6 +410,7 @@ fn validate_content_pdf(filename: &str, bytes: &[u8]) -> Result<()> {
     crate::games::validate_attachment(filename, bytes)
 }
 
+#[cfg(test)]
 fn hydrate_attachments(connection: &Connection, workspace: &mut Workspace) -> Result<()> {
     let mut statement = connection.prepare("SELECT bytes FROM game_attachments WHERE id=?1")?;
     for attachment in attachments_mut(workspace) {
@@ -829,6 +830,58 @@ fn read_welcome_modal_version(connection: &Connection) -> Result<Option<u32>> {
         .transpose()
 }
 
+fn document(connection: &Connection) -> Result<Option<StoredDocument>> {
+    Ok(connection
+        .query_row(
+            "SELECT schema_version, revision, payload FROM documents WHERE id=1",
+            [],
+            |row| {
+                Ok(StoredDocument {
+                    schema_version: row.get(0)?,
+                    revision: row.get(1)?,
+                    payload: row.get(2)?,
+                })
+            },
+        )
+        .optional()?)
+}
+fn load_snapshot(connection: &Connection) -> Result<Snapshot> {
+    match document(connection)? {
+        Some(document) => from_document(document),
+        None => Ok(Snapshot {
+            revision: 0,
+            workspace: Workspace::default(),
+        }),
+    }
+}
+pub(crate) fn has_inline_attachments(workspace: &Workspace) -> bool {
+    workspace
+        .games
+        .iter()
+        .flat_map(|game| &game.attachments)
+        .chain(content_blocks(workspace).filter_map(|block| block.attachment.as_ref()))
+        .any(|attachment| attachment.bytes.is_some())
+}
+
+pub(crate) fn attachment_index(workspace: &Workspace) -> HashMap<&str, (&str, bool)> {
+    workspace
+        .games
+        .iter()
+        .flat_map(|game| &game.attachments)
+        .map(|attachment| {
+            (
+                attachment.id.as_str(),
+                (attachment.filename.as_str(), false),
+            )
+        })
+        .chain(
+            content_blocks(workspace)
+                .filter_map(|block| block.attachment.as_ref())
+                .map(|attachment| (attachment.id.as_str(), (attachment.filename.as_str(), true))),
+        )
+        .collect()
+}
+
 pub struct Store {
     connection: Connection,
 }
@@ -840,7 +893,7 @@ impl Store {
     fn from_connection(mut connection: Connection) -> Result<Self> {
         connection.busy_timeout(std::time::Duration::from_secs(5))?;
         let mut version: u32 = connection.query_row("PRAGMA user_version", [], |r| r.get(0))?;
-        if version > 6 {
+        if version > 7 {
             return Err(stored(
                 "Die Datenbank stammt aus einer neueren Ankerzug-Version.",
             ));
@@ -1027,7 +1080,23 @@ impl Store {
             transaction.commit()?;
             version = 6;
         }
-        if version != 6 {
+        if version == 6 {
+            let transaction =
+                connection.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
+            transaction.execute_batch(
+                "ALTER TABLE recovery ADD COLUMN detached_attachments INTEGER NOT NULL DEFAULT 0 CHECK(detached_attachments IN (0, 1));
+                 CREATE TABLE recovery_attachments (
+                    recovery_id INTEGER NOT NULL REFERENCES recovery(id) ON DELETE CASCADE,
+                    attachment_id TEXT NOT NULL,
+                    bytes BLOB NOT NULL,
+                    PRIMARY KEY (recovery_id, attachment_id)
+                 );
+                 PRAGMA user_version=7;",
+            )?;
+            transaction.commit()?;
+            version = 7;
+        }
+        if version != 7 {
             return Err(stored(
                 "Diese Entwicklungsversion unterstützt nur eine neu angelegte Datenbank. Bitte Backup wiederherstellen.",
             ));
@@ -1051,30 +1120,8 @@ impl Store {
         transaction.commit()?;
         Ok(version)
     }
-    fn document(&self) -> Result<Option<StoredDocument>> {
-        Ok(self
-            .connection
-            .query_row(
-                "SELECT schema_version, revision, payload FROM documents WHERE id=1",
-                [],
-                |row| {
-                    Ok(StoredDocument {
-                        schema_version: row.get(0)?,
-                        revision: row.get(1)?,
-                        payload: row.get(2)?,
-                    })
-                },
-            )
-            .optional()?)
-    }
     pub fn load(&self) -> Result<Snapshot> {
-        match self.document()? {
-            Some(document) => from_document(document),
-            None => Ok(Snapshot {
-                revision: 0,
-                workspace: Workspace::default(),
-            }),
-        }
+        load_snapshot(&self.connection)
     }
     pub fn save(&mut self, input: SaveInput) -> Result<Snapshot> {
         self.write(input, false)
@@ -1087,32 +1134,48 @@ impl Store {
         } = input;
         let (workspace, mut attachment_bytes) = without_attachment_bytes(&workspace);
         attachment_bytes.extend(attachments);
-        validate(&workspace)?;
-        let mut attachment_index: HashMap<_, _> = workspace
-            .games
-            .iter()
-            .flat_map(|game| &game.attachments)
-            .map(|a| (a.id.as_str(), (a.filename.as_str(), false)))
-            .chain(
-                content_blocks(&workspace)
-                    .filter_map(|block| block.attachment.as_ref())
-                    .map(|a| (a.id.as_str(), (a.filename.as_str(), true))),
-            )
-            .collect();
+        let index = attachment_index(&workspace);
         let mut pending = HashMap::new();
-        for attachment in &attachment_bytes {
-            let (filename, is_content) = attachment_index
-                .get(attachment.id.as_str())
-                .ok_or_else(|| invalid("Ungültiger PDF-Anhang."))?;
-            if *is_content {
-                validate_content_pdf(filename, &attachment.bytes)?;
-            } else {
-                crate::games::validate_attachment(filename, &attachment.bytes)?;
-            }
-            if let Some(previous) = pending.insert(&attachment.id, &attachment.bytes) {
-                require(previous == &attachment.bytes, "Widersprüchliche PDF-Daten.")?;
+        for attachment in attachment_bytes {
+            require(
+                index.contains_key(attachment.id.as_str()),
+                "Ungültiger PDF-Anhang.",
+            )?;
+            match pending.entry(attachment.id) {
+                std::collections::hash_map::Entry::Vacant(entry) => {
+                    entry.insert(attachment.bytes);
+                }
+                std::collections::hash_map::Entry::Occupied(entry) => require(
+                    entry.get() == &attachment.bytes,
+                    "Widersprüchliche PDF-Daten.",
+                )?,
             }
         }
+        self.write_with_attachments(workspace, expected_revision, recovery, false, |_, id| {
+            Ok(pending.remove(id))
+        })
+    }
+
+    pub(crate) fn restore_detached(
+        &mut self,
+        workspace: Workspace,
+        expected_revision: u64,
+        mut read: impl FnMut(&str) -> Result<Vec<u8>>,
+    ) -> Result<Snapshot> {
+        self.write_with_attachments(workspace, expected_revision, true, true, |_, id| {
+            read(id).map(Some)
+        })
+    }
+
+    fn write_with_attachments(
+        &mut self,
+        workspace: Workspace,
+        expected_revision: u64,
+        recovery: bool,
+        require_all: bool,
+        mut read: impl FnMut(&Connection, &str) -> Result<Option<Vec<u8>>>,
+    ) -> Result<Snapshot> {
+        let mut attachment_index = attachment_index(&workspace);
         let payload = to_payload(&workspace)?;
         let transaction = self
             .connection
@@ -1134,19 +1197,26 @@ impl Store {
             .filter(|r| *r <= 9_007_199_254_740_991)
             .ok_or_else(|| stored("Ungültige Datenversion."))?;
         if recovery && let Some((old_revision, old_payload)) = previous {
-            let normalized = normalize_payload(&old_payload)?;
-            let mut old_workspace: Workspace = serde_json::from_str(&normalized)
-                .map_err(|e| stored(&format!("Ungültige gespeicherte Daten: {e}")))?;
-            hydrate_attachments(&transaction, &mut old_workspace)?;
             transaction.execute(
-                "INSERT INTO recovery (schema_version, revision, payload) VALUES (2, ?1, ?2)",
-                params![
-                    old_revision,
-                    serde_json::to_string(&old_workspace).map_err(|e| stored(&e.to_string()))?
-                ],
+                "INSERT INTO recovery (schema_version, revision, payload, detached_attachments) VALUES (2, ?1, ?2, 1)",
+                params![old_revision, old_payload],
+            )?;
+            transaction.execute(
+                "INSERT INTO recovery_attachments (recovery_id, attachment_id, bytes)
+                 SELECT ?1, id, bytes FROM game_attachments",
+                [transaction.last_insert_rowid()],
             )?;
         }
-        for (id, bytes) in pending {
+        for (id, (filename, is_content)) in &attachment_index {
+            let Some(bytes) = read(&transaction, id)? else {
+                require(!require_all, "PDF-Anhang fehlt im Backup.")?;
+                continue;
+            };
+            if *is_content {
+                validate_content_pdf(filename, &bytes)?;
+            } else {
+                crate::games::validate_attachment(filename, &bytes)?;
+            }
             transaction.execute(
                 "INSERT INTO game_attachments (id, bytes) VALUES (?1, ?2) ON CONFLICT(id) DO UPDATE SET bytes=excluded.bytes",
                 params![id, bytes],
@@ -1185,6 +1255,19 @@ impl Store {
             workspace,
         })
     }
+    pub(crate) fn export_backup(&mut self, path: &Path) -> Result<()> {
+        let transaction = self.connection.transaction()?;
+        let workspace = load_snapshot(&transaction)?.workspace;
+        let mut attachment =
+            transaction.prepare("SELECT bytes FROM game_attachments WHERE id=?1")?;
+        crate::backup::write_zip(path, workspace, |id| {
+            attachment
+                .query_row([id], |row| row.get(0))
+                .map_err(Into::into)
+        })
+    }
+
+    #[cfg(test)]
     pub fn backup(&self) -> Result<String> {
         let mut workspace = self.load()?.workspace;
         hydrate_attachments(&self.connection, &mut workspace)?;
@@ -1195,21 +1278,30 @@ impl Store {
         .map_err(|e| stored(&e.to_string()))
     }
     pub fn recover(&mut self, expected_revision: u64) -> Result<Snapshot> {
-        let payload: Option<String> = self
+        let previous: Option<(i64, String, bool)> = self
             .connection
             .query_row(
-                "SELECT payload FROM recovery ORDER BY id DESC LIMIT 1",
+                "SELECT id, payload, detached_attachments FROM recovery ORDER BY id DESC LIMIT 1",
                 [],
-                |row| row.get(0),
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
             )
             .optional()?;
-        let payload = payload
+        let (id, payload, detached) = previous
             .ok_or_else(|| invalid("Es gibt noch keinen Stand vor einer Wiederherstellung."))?;
         let snapshot = from_document(StoredDocument {
             schema_version: 2,
             revision: 0,
             payload,
         })?;
+        if detached {
+            return self.write_with_attachments(snapshot.workspace, expected_revision, true, true, |connection, attachment_id| {
+                Ok(connection.query_row(
+                    "SELECT bytes FROM recovery_attachments WHERE recovery_id=?1 AND attachment_id=?2",
+                    params![id, attachment_id],
+                    |row| row.get(0),
+                ).optional()?)
+            });
+        }
         validate_portable_content_attachments(&snapshot.workspace)?;
         let (workspace, attachments) = without_attachment_bytes(&snapshot.workspace);
         self.write(
@@ -1387,7 +1479,7 @@ mod tests {
     fn all_older_schema_paths_preserve_live_and_recovery_with_fresh_preferences() {
         let games: serde_json::Value =
             serde_json::from_str(include_str!("../../fixtures/games-package-v1.json")).unwrap();
-        for version in 1..=5 {
+        for version in 1..=6 {
             let path = std::env::temp_dir().join(format!(
                 "ankerzug-upgrade-{version}-{}-{}.sqlite3",
                 std::process::id(),
@@ -1406,6 +1498,9 @@ mod tests {
                         "CREATE TABLE game_attachments (id TEXT PRIMARY KEY, bytes BLOB NOT NULL);",
                     )
                     .unwrap();
+            }
+            if version == 6 {
+                connection.execute_batch("CREATE TABLE app_preferences (id INTEGER PRIMARY KEY, welcome_modal_version INTEGER NOT NULL); INSERT INTO app_preferences VALUES (1, 1);").unwrap();
             }
             let fixture = if version == 1 {
                 include_str!("../../fixtures/workspace-v1.json")
@@ -1471,9 +1566,12 @@ mod tests {
                         .connection
                         .query_row("PRAGMA user_version", [], |row| row.get::<_, u32>(0))
                         .unwrap(),
-                    6
+                    7
                 );
-                assert_eq!(store.load_welcome_modal_version().unwrap(), None);
+                assert_eq!(
+                    store.load_welcome_modal_version().unwrap(),
+                    (version == 6).then_some(1)
+                );
                 assert_eq!(store.load().unwrap().revision, 8);
                 assert_eq!(
                     to_payload(&store.load().unwrap().workspace).unwrap(),
@@ -2303,7 +2401,7 @@ mod tests {
                     .connection
                     .query_row("PRAGMA user_version", [], |r| r.get::<_, u32>(0))
                     .unwrap(),
-                6
+                7
             );
         }
         std::fs::remove_file(path).unwrap();
@@ -2336,7 +2434,7 @@ mod tests {
                 .connection
                 .query_row("PRAGMA user_version", [], |row| row.get::<_, u32>(0))
                 .unwrap(),
-            6
+            7
         );
         let snapshot = restored.restore(&backup, 0).unwrap();
         assert_eq!(
@@ -2352,7 +2450,7 @@ mod tests {
     #[test]
     fn unknown_future_schema_is_not_reset() {
         let connection = Connection::open_in_memory().unwrap();
-        connection.execute_batch("PRAGMA user_version=7").unwrap();
+        connection.execute_batch("PRAGMA user_version=8").unwrap();
         assert!(Store::from_connection(connection).is_err());
     }
     #[test]
