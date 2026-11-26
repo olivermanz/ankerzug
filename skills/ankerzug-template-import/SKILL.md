@@ -26,8 +26,8 @@ conversion; do not reconstruct the schema from memory.
 2. Identify each distinct session and create one template per session. Preserve
    exercise order, trainer choices and meaningful free text. Do not insert
    exercises, warm-ups, cooldowns or pauses that the source or user did not request.
-3. Check that the session type, total duration and each block duration can be
-   determined. Ask concise, bundled questions for missing or ambiguous mandatory
+3. Check that the training focus (Schwerpunkt), total duration and each block
+   duration can be determined. Ask concise, bundled questions for missing or ambiguous mandatory
    information before delivering a final import. Do not infer timings from arrow
    counts or repetitions or silently round fractional minutes. A single block can
    use a stated session total; multiple blocks need known durations.
@@ -48,12 +48,15 @@ conversion; do not reconstruct the schema from memory.
 - Start offsets at zero and calculate each following offset from preceding
   block durations. Encode a documented pause as an explicit positive-duration
   `Pause` block. Absolute clock times are not template fields.
-- Put trainer instructions in `content` and equipment in `material`, because
-  some other block metadata is stored but hidden in the template editor.
+- Put trainer instructions in `content`, equipment in `material` and additional
+  block notes (Anmerkungen) in `notes`. Use up to 400 characters per note in new
+  conversions. Keep longer passages in `content` to preserve them in full.
 - Use `null`, `""` or `[]` for absent optional data, according to the reference.
   Unknown quantities are not zero. Derive planned arrow totals only from explicit,
-  unambiguous instructions. Do not convert arrow totals or qualitative adjectives
-  into numeric volume, intensity, specificity or load profiles.
+  unambiguous instructions. Set `volume`, `intensity` and `competitionSpecificity`
+  to `null` in new templates. Preserve relevant source instructions on effort,
+  volume or competition conditions in `content`. Use a numeric block load only
+  when the source specifies it on the documented scale.
 - For new conversions, set `areas` to `[]` on every template and block.
   Set `actualArrowCount`, `actualDuration` and `actualLoad`
   to `null`. Preserve shared planning instructions rather than introducing
