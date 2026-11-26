@@ -309,6 +309,25 @@ describe('generation and section 32 acceptance', () => {
       }),
     ).toHaveLength(4);
   });
+  it.each(['replace', 'empty', 'append'] as const)(
+    'preserves the session load profile and copies block notes in %s mode',
+    (mode) => {
+      const c = withSlots();
+      acceptPreview(c, generatePreview(c));
+      const session = c.sessions[0];
+      session.contents = [];
+      const profile = { volume: 2, intensity: 3, competitionSpecificity: 4 };
+      Object.assign(session, profile);
+      const template = structuredClone((fixture as Backup).workspace.templates[0]);
+      Object.assign(template, { volume: null, intensity: 5, competitionSpecificity: 1 });
+      template.contents[0].notes = 'Material gemeinsam prüfen.';
+
+      applyTemplate([session], template, mode);
+
+      expect(session).toMatchObject(profile);
+      expect(session.contents[0].notes).toBe('Material gemeinsam prüfen.');
+    },
+  );
   it('reads the shared Rust/TypeScript serialization fixture without defaults', () => {
     const backup = fixture as Backup;
     expect(backup.formatVersion).toBe(2);

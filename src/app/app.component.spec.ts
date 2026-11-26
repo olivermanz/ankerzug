@@ -354,6 +354,11 @@ describe('MVP UI acceptance', () => {
     stored.workspace.templates = structuredClone(
       compatibilityBackup.workspace.templates,
     ) as Template[];
+    Object.assign(stored.workspace.templates[0], {
+      volume: 3,
+      intensity: 4,
+      competitionSpecificity: 5,
+    });
     await planner.load();
     await render();
     expect(fixture.componentInstance.cycle()).toBeUndefined();
@@ -363,8 +368,20 @@ describe('MVP UI acceptance', () => {
     expect(root.textContent).not.toContain('VOM ERSTEN TRAINING BIS ZUM WETTKAMPF');
     expect(root.querySelector('[aria-label="Makrozyklus-Navigation"]')).toBeNull();
     await click('Bearbeiten');
+    const editor = root.querySelector('[aria-label="Vorlagenbearbeitung"]')!;
+    expect(editor.textContent).not.toMatch(/Vorlagentyp|Umfang|Intensität|Spezifität/);
+    await fill('Schwerpunkt', 'ET');
     await fill('Name', 'Globale Testvorlage');
+    expect(editor.querySelector('textarea[maxlength="400"]')).not.toBeNull();
+    await fill('Anmerkungen', 'Aufbau vorbereiten.\nMaterial gemeinsam prüfen.');
     await planner.settled();
+    expect(stored.workspace.templates[0]).toMatchObject({
+      sessionType: 'ET',
+      volume: 3,
+      intensity: 4,
+      competitionSpecificity: 5,
+      contents: [{ notes: 'Aufbau vorbereiten.\nMaterial gemeinsam prüfen.' }],
+    });
     await planner.load();
     await click('← Zurück');
     await render();

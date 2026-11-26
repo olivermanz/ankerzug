@@ -507,9 +507,6 @@ export function applyTemplate(
     }));
     session.sessionType = template.sessionType;
     session.areas = [...template.areas];
-    session.volume = template.volume;
-    session.intensity = template.intensity;
-    session.competitionSpecificity = template.competitionSpecificity;
     session.contents = mode === 'append' ? [...session.contents, ...contents] : contents;
     sequenceContents(session.contents);
     session.plannedDuration =
