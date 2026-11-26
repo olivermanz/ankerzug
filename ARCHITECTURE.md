@@ -187,8 +187,8 @@ are never stored. Migrated mesocycle `legacyArrowCount` retains its original 0-1
 internal compatibility metadata; it has no editor field. Nullable
 Mesozycles store independent volume and specificity 1-5 scales. Intensity is not an
 editable mesocycle value; historical values remain compatibility data and do not affect
-new session suggestions. Session and template profiles retain independent volume,
-intensity and specificity scales. Absolute session/block
+new session suggestions. Session profiles use independent volume, intensity and
+specificity scales. Templates retain these fields for data compatibility. Absolute session/block
 planned arrow counts are nullable u32 integers (0-4294967295), matching
 TypeScript bounds. The unchanged v2 DTO also contains superseded measurement
 fields and goal statuses; these are compatibility data, not the target model.
@@ -331,9 +331,9 @@ recovery in turn. Any failed restore rolls back workspace and recovery together.
   planned values and never multiply them by
   group membership. Legacy measurement/snapshot handling remains compatibility
   behavior in unchanged code, not an obligation for new planning views.
-- Templates copy type, planned load, block planning values and retained compatibility data with new
-  IDs and independent arrays. Organizational appointment status survives template
-  application; superseded stored fields follow the existing compatibility rules.
+- Templates copy type, block planning values and retained compatibility data with new
+  IDs and independent arrays. Template application preserves the target session's
+  volume, intensity, specificity and organizational appointment status.
 - Structured goals are retained only for compatibility; no goal CRUD or display
   workflow remains. Existing reference transformations continue to maintain storage
   integrity during phase/session operations. Planned load/content/phase gaps warn
@@ -422,11 +422,12 @@ Existing development payloads with removed fields fail explicit validation.
 
 ## Simplified session and content editors
 
-Session editors omit planned arrows and volume/intensity/specificity controls.
+Session editors omit planned arrows. Session and template editors omit
+volume/intensity/specificity controls.
 Session and template content editors omit subcategory, exercise reference and planned
-arrow counts/load. Session content exposes `notes` as a multiline “Anmerkungen”
-editor with a maximum of 400 characters; template-only compatibility controls remain
-hidden. Hidden planning fields remain stored. Superseded measurement fields remain
+arrow counts/load. Both content editors expose `notes` as a multiline “Anmerkungen”
+editor with a maximum of 400 characters. Hidden planning fields remain stored.
+Superseded measurement fields remain
 solely for storage and backup compatibility; the target does not expose or evaluate
 them. Blocks expose `material` as a free-text string and the existing `content` as a
 large multiline “Inhalte” editor. Copies, templates and generation baselines retain

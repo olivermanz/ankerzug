@@ -44,7 +44,7 @@
       }
       <div class="form-grid">
         <label
-          >Vorlagentyp<select
+          >Schwerpunkt<select
             [(ngModel)]="t.sessionType"
             (ngModelChange)="planner.templateChanged(t)"
           >
@@ -53,28 +53,6 @@
             }
           </select></label
         >
-        <label
-          >Vorlagenumfang<input
-            type="number"
-            min="1"
-            max="5"
-            [(ngModel)]="t.volume"
-            (ngModelChange)="planner.templateChanged(t)" /></label
-        ><label
-          >Vorlagenintensität<input
-            type="number"
-            min="1"
-            max="5"
-            [(ngModel)]="t.intensity"
-            (ngModelChange)="planner.templateChanged(t)" /></label
-        ><label
-          >Vorlagenspezifität<input
-            type="number"
-            min="1"
-            max="5"
-            [(ngModel)]="t.competitionSpecificity"
-            (ngModelChange)="planner.templateChanged(t)"
-        /></label>
       </div>
       <div class="form-grid">
         <label
@@ -116,6 +94,13 @@
             >Material<input
               [(ngModel)]="b.material"
               (ngModelChange)="planner.templateChanged(t)" /></label
+          ><label
+            >Anmerkungen<textarea
+              [(ngModel)]="b.notes"
+              maxlength="400"
+              rows="2"
+              (ngModelChange)="planner.templateChanged(t)"
+            ></textarea></label
           ><label
             >Typ<select [(ngModel)]="b.category" (ngModelChange)="changeBlockType(t, b)">
               <option value="">Kein Typ</option>
