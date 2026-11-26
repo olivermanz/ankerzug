@@ -45,8 +45,9 @@ boundaries, evidence collection and an agent exploration prompt.
    and edit relative minute offsets. New blocks start after the previous block.
 7. Save a session as a template, edit/duplicate the three basis templates, and
    apply a template to selected sessions, a slot, a phase or its unplanned sessions.
-8. Wait for **Lokal gespeichert**. Create a backup; restore a selected JSON backup
-   with explicit replacement confirmation. The previous state remains recoverable.
+8. Wait for **Lokal gespeichert**. Create a `*.ankerzug.zip` backup. Use
+   **Backup wiederherstellen** to open a ZIP or a legacy JSON backup, then confirm
+   replacement. Use **Stand vor Wiederherstellung** to recover the previous state.
 
 In **Mesozyklen**, assign a **Standardvorlage** and preview its application to
 new or still unplanned sessions. The preview lists resulting contents, duration
@@ -164,7 +165,7 @@ type, status and training areas are omitted. Continued blocks are labelled.
 Cancelling the optional **Speichern unter …** dialog creates no file. Unsupported
 font characters
 produce an explicit error; German umlauts and ß are supported. The export works
-offline in the desktop application and is separate from a restorable JSON backup.
+offline in the desktop application and is separate from a restorable workspace backup.
 The PDF opens in its own Ankerzug viewer window. **Drucken** and
 Ctrl+P (Cmd+P on macOS) open the print dialog once all pages are ready. Each export
 opens a separate window; closing it releases the in-memory document. Saving is

@@ -210,8 +210,8 @@ and preview state. DataAccessService wraps only explicit typed IPC operations.
 Errors have `code` (`invalidInput`, `conflict`, `storage`, `invalidStoredValue`) and
 `message`. Deserialization errors from Tauri are normalized as transport failures.
 
-The current SQLite schema is `user_version=6`; business documents and backups remain
-version 2. In the original SQLite `user_version=2` layout, the private
+The current SQLite schema is `user_version=7`; business documents remain version 2.
+Backup container versions are independent. In the original SQLite `user_version=2` layout, the private
 `StoredDocument` validates schema, safe integer revision and business payload.
 A version-1 upgrade validates and converts every live and recovery document before
 rebuilding both tables in the same immediate transaction. IDs, revisions, names,
@@ -249,16 +249,39 @@ and never replaces newer form values with an old response. Invalid and failed
 edits remain in the UI. Closing the native window flushes pending changes; the
 user must confirm discarding a failed write.
 
-Version-2 backups serialize all business data; restore accepts v1 through explicit
-conversion and v2 directly. Future versions and unknown fields/enums are rejected. Restore validates before writing,
-checks the current revision, and inserts the previous payload into `recovery` in
-the same transaction as replacement. `recover_previous` restores the latest such
-copy, saving the current state for recovery in turn. Invalid or failed restores
-roll back both writes. Rust opens the backup Save As dialog, validates a `.json`
-destination and writes through a synced temporary sibling before replacement.
-Cancellation returns null without changing workspace data or creating a file;
-Angular neither supplies paths nor receives backup bytes. No frontend filesystem
-permission is available.
+### Backup and recovery
+
+New backups are Deflate-compressed `*.ankerzug.zip` archives. The UTF-8
+`backup.json` manifest has `formatVersion: 3` and contains the complete workspace
+with attachment metadata and no embedded PDF bytes. Each referenced ID maps to
+one archive entry `attachments/<lowercase hex of the UTF-8 ID>.pdf`. Encoding the
+ID also supports older workspaces whose IDs are not UUIDs. Display filenames
+remain in the manifest. The manifest limit is 200 MiB. Per-PDF limits are
+5 MiB for games and 1 MB for training content. Archives can contain at most
+20,000 distinct PDFs and 4 GiB of uncompressed PDF bytes.
+
+Rust owns both native file dialogs and the file handles. Export reads a
+consistent SQLite snapshot one PDF at a time and replaces the selected file
+only after the temporary sibling ZIP has been completed and synced.
+Restore recognizes ZIP and legacy JSON by content. Existing v1 JSON uses
+explicit conversion, and v2 JSON uses the existing normalization and validation
+path. Their 200 MiB file limit remains in effect. Future formats are rejected.
+
+For ZIP restore, Rust validates the manifest and archive index and returns a
+preview containing counts and PDF metadata. After confirmation Angular requests
+each PDF individually and applies the existing PDF rendering and page-size
+checks. Rust validates actual entry sizes and CRC on read, stages those exact
+bytes in a private temporary file and uses them in the restore transaction.
+Duplicate, missing and unexpected entries are rejected. The selected paths and
+ZIP bytes stay in Rust. Canceling either dialog leaves the workspace untouched.
+
+Restore checks the expected revision and commits the workspace, attachments,
+and previous state in one transaction. SQLite schema v7 adds a marker on
+`recovery` and a `recovery_attachments` table for new snapshots. SQLite copies
+the prior BLOBs directly and stores the previous workspace metadata separately.
+Existing recovery rows retain their inline JSON bytes and remain readable.
+`recover_previous` restores the latest copy and saves the current state for
+recovery in turn. Any failed restore rolls back workspace and recovery together.
 
 ## MVP planning policy
 
@@ -703,8 +726,7 @@ unseen. The v5-to-v6 migration is transactional and does not rewrite workspace o
 recovery data. Acknowledgment stores the maximum of the existing and requested
 versions atomically, so an older application cannot lower a newer acknowledgment.
 Invalid stored values fail explicitly. Preferences do not participate in workspace
-revisions, autosave, backup payloads, restore or recovery; both backup readers remain
-unchanged.
+revisions, autosave, backup payloads, restore or recovery.
 
 The dialog uses native HTML dialog semantics, keyboard focus containment and
 restoration, a persistent close control, previous/next actions and a page counter.

@@ -114,7 +114,7 @@ paths. Roles inherit session model settings and permissions.
   and specificity profiles; absolute session/block arrow counts are separate.
   Migrated optional mesocycle legacyArrowCount retains its original 0-100
   meaning; never reinterpret it as an absolute count or load dimension. Preserve
-  transactional v1 conversion and both backup readers. Follow ARCHITECTURE.md
+  transactional v1 conversion and both legacy JSON readers. Follow ARCHITECTURE.md
   for compatibility contracts and EXPLORATORY_TESTING.md for acceptance. Include
   configured holidays and recovery periods in planning.
 - The corrected scope is shared group planning. Keep planned load profiles,
@@ -125,7 +125,7 @@ paths. Roles inherit session model settings and permissions.
   stored records and existing reference/profile handling for compatibility.
   Material planning covers shared equipment and training topics. Superseded v2
   fields remain compatibility data until a separately authorized code adaptation;
-  preserve existing storage, recovery and both backup readers without data loss.
+  preserve existing storage, recovery and both legacy JSON readers without data loss.
 - Keep technical documentation in English and preserve German product terminology. Update related documents when decisions change.
 - Keep changes focused on the task and preserve existing staged, unstaged, and
   untracked work. Do not scaffold the application as a side effect of a

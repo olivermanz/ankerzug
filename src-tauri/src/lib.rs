@@ -1,3 +1,4 @@
+mod backup;
 #[cfg(feature = "exploration")]
 mod exploration;
 mod games;
@@ -8,7 +9,7 @@ mod pdf_export;
 mod plan_exchange;
 mod storage;
 use models::{SaveInput, Snapshot};
-use std::{path::Path, sync::Mutex};
+use std::sync::Mutex;
 use storage::{AppError, ErrorCode, Result, Store};
 use tauri::{Manager, State};
 use tauri_plugin_dialog::DialogExt;
@@ -45,67 +46,131 @@ fn read_game_attachments(
     lock(&state)?.attachment_bytes(&ids)
 }
 #[tauri::command]
-async fn create_backup(app: tauri::AppHandle, state: State<'_, Backend>) -> Result<Option<String>> {
-    let contents = lock(&state)?.backup()?;
-    let filename = backup_filename()?;
-    tauri::async_runtime::spawn_blocking(move || {
-        let selected = app
+async fn create_backup(app: tauri::AppHandle) -> Result<Option<String>> {
+    backup_task(move || {
+        let stamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_err(backup_error)?
+            .as_nanos();
+        let Some(selected) = app
             .dialog()
             .file()
             .set_title("Backup speichern unter")
-            .add_filter("Ankerzug-Backup", &["json"])
-            .set_file_name(&filename)
-            .blocking_save_file();
-        let path = selected
-            .map(|selected| {
-                selected.into_path().map_err(|error| AppError {
-                    code: ErrorCode::Storage,
-                    message: format!("Backup-Zieldatei ist nicht erreichbar: {error}"),
-                })
-            })
-            .transpose()?;
-        save_backup(path.as_deref(), &contents)
+            .add_filter("Ankerzug-Backup", &["zip"])
+            .set_file_name(format!("ankerzug-{stamp}.ankerzug.zip"))
+            .blocking_save_file()
+        else {
+            return Ok(None);
+        };
+        let path = selected.into_path().map_err(backup_error)?;
+        lock(&app.state::<Backend>())?.export_backup(&path)?;
+        Ok(Some(path.to_string_lossy().into_owned()))
     })
     .await
-    .map_err(|error| AppError {
+}
+
+#[derive(Default)]
+struct RestoreSession {
+    token: u64,
+    prepared: Option<Box<backup::PreparedZip>>,
+}
+impl RestoreSession {
+    fn require_token(&self, token: u64) -> Result<()> {
+        if self.token != token || self.prepared.is_none() {
+            return Err(storage::invalid(
+                "Das ausgewählte Backup ist nicht mehr verfügbar.",
+            ));
+        }
+        Ok(())
+    }
+}
+
+fn backup_error(error: impl std::fmt::Display) -> AppError {
+    AppError {
         code: ErrorCode::Storage,
-        message: format!("Backup-Erstellung fehlgeschlagen: {error}"),
-    })?
+        message: format!("Backup-Datei: {error}"),
+    }
 }
 
-fn backup_filename() -> Result<String> {
-    let stamp = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map_err(|e| AppError {
-            code: ErrorCode::Storage,
-            message: e.to_string(),
-        })?
-        .as_nanos();
-    Ok(format!("ankerzug-{stamp}.json"))
+async fn backup_task<T: Send + 'static>(
+    task: impl FnOnce() -> Result<T> + Send + 'static,
+) -> Result<T> {
+    tauri::async_runtime::spawn_blocking(task)
+        .await
+        .map_err(backup_error)?
 }
 
-fn save_backup(path: Option<&Path>, contents: &str) -> Result<Option<String>> {
-    let Some(path) = path else {
-        return Ok(None);
-    };
-    if !path
-        .extension()
-        .is_some_and(|extension| extension.eq_ignore_ascii_case("json"))
-    {
-        return Err(AppError {
-            code: ErrorCode::InvalidInput,
-            message: "Bitte eine Zieldatei mit der Endung .json wählen.".into(),
-        });
-    }
-    if contents.len() > 200 * 1024 * 1024 {
-        return Err(AppError {
-            code: ErrorCode::InvalidInput,
-            message: "Backup ist größer als 200 MiB.".into(),
-        });
-    }
-    pdf_export::write_export(path, contents.as_bytes())?;
-    Ok(Some(path.to_string_lossy().into_owned()))
+#[tauri::command]
+async fn select_backup(app: tauri::AppHandle) -> Result<Option<backup::BackupSelection>> {
+    backup_task(move || {
+        let Some(selected) = app
+            .dialog()
+            .file()
+            .set_title("Backup wiederherstellen")
+            .add_filter("Ankerzug-Backups", &["zip", "json"])
+            .blocking_pick_file()
+        else {
+            return Ok(None);
+        };
+        let path = selected.into_path().map_err(backup_error)?;
+        let selection = backup::open_backup(&path)?;
+        let state = app.state::<Mutex<RestoreSession>>();
+        let mut session = state.lock().map_err(backup_error)?;
+        session.prepared = None;
+        match selection {
+            backup::SelectedBackup::Legacy(contents) => {
+                Ok(Some(backup::BackupSelection::Legacy { contents }))
+            }
+            backup::SelectedBackup::Zip(prepared) => {
+                session.token += 1;
+                let preview = prepared.preview(session.token);
+                session.prepared = Some(prepared);
+                Ok(Some(preview))
+            }
+        }
+    })
+    .await
 }
+
+#[tauri::command]
+async fn read_backup_pdf(app: tauri::AppHandle, token: u64, id: String) -> Result<Vec<u8>> {
+    backup_task(move || {
+        let state = app.state::<Mutex<RestoreSession>>();
+        let mut session = state.lock().map_err(backup_error)?;
+        session.require_token(token)?;
+        session.prepared.as_mut().unwrap().stage_pdf(&id)
+    })
+    .await
+}
+
+#[tauri::command]
+async fn apply_zip_backup(
+    app: tauri::AppHandle,
+    token: u64,
+    expected_revision: u64,
+) -> Result<Snapshot> {
+    backup_task(move || {
+        let state = app.state::<Mutex<RestoreSession>>();
+        let prepared = {
+            let mut session = state.lock().map_err(backup_error)?;
+            session.require_token(token)?;
+            session.prepared.take().unwrap()
+        };
+        let backend = app.state::<Backend>();
+        prepared.restore(&mut *lock(&backend)?, expected_revision)
+    })
+    .await
+}
+
+#[tauri::command]
+fn discard_zip_backup(token: u64, state: State<Mutex<RestoreSession>>) -> Result<()> {
+    let mut session = state.lock().map_err(backup_error)?;
+    if session.token == token {
+        session.prepared = None;
+    }
+    Ok(())
+}
+
 #[tauri::command]
 fn restore_backup(
     contents: String,
@@ -134,6 +199,7 @@ pub fn run() {
     builder
         .plugin(tauri_plugin_dialog::init())
         .manage(pdf_export::PdfViewers::default())
+        .manage(Mutex::new(RestoreSession::default()))
         .setup(|app| {
             #[cfg(feature = "exploration")]
             let directory = exploration::directory()?;
@@ -157,6 +223,10 @@ pub fn run() {
             save_workspace,
             read_game_attachments,
             create_backup,
+            select_backup,
+            read_backup_pdf,
+            apply_zip_backup,
+            discard_zip_backup,
             restore_backup,
             recover_previous,
             pdf_export::export_session_pdf,
@@ -170,39 +240,4 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("Ankerzug konnte nicht gestartet werden");
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn optional_backup_save_preserves_cancellation_rejects_other_extensions_and_writes_exact_json()
-    {
-        assert!(
-            save_backup(None, "{\"formatVersion\":2}")
-                .unwrap()
-                .is_none()
-        );
-        let folder = std::env::temp_dir().join(format!(
-            "ankerzug-backup-save-{}-{}",
-            std::process::id(),
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_nanos()
-        ));
-        std::fs::create_dir_all(&folder).unwrap();
-        let invalid = folder.join("backup.txt");
-        assert!(save_backup(Some(&invalid), "{\"formatVersion\":2}").is_err());
-        assert!(!invalid.exists());
-        let destination = folder.join("ankerzug-backup.json");
-        let contents = "{\n  \"formatVersion\": 2\n}";
-        assert_eq!(
-            save_backup(Some(&destination), contents).unwrap(),
-            Some(destination.to_string_lossy().into_owned())
-        );
-        assert_eq!(std::fs::read_to_string(&destination).unwrap(), contents);
-        std::fs::remove_dir_all(folder).unwrap();
-    }
 }

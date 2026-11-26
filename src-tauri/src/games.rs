@@ -5,7 +5,7 @@ use std::io::Read;
 use tauri_plugin_dialog::DialogExt;
 
 pub const PACKAGE_LIMIT: usize = 100 * 1024 * 1024;
-const ATTACHMENT_LIMIT: usize = 5 * 1024 * 1024;
+pub(crate) const ATTACHMENT_LIMIT: usize = 5 * 1024 * 1024;
 fn invalid(message: &str) -> AppError {
     AppError {
         code: ErrorCode::InvalidInput,
