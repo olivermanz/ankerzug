@@ -107,6 +107,8 @@ The first MVP provides pnpm scripts for frontend development/builds, Tauri devel
   GPL-licensed unless their own license says so.
 - `pnpm licenses:generate` deterministically creates `THIRD_PARTY_NOTICES.md` from
   the locked production JavaScript and Rust dependency roots and bundled assets.
+  It follows the installed production JavaScript dependency graph and lists
+  shipped license and NOTICE files in a fixed order.
   Run `pnpm install --frozen-lockfile` and
   `cargo fetch --manifest-path src-tauri/Cargo.toml --locked` first so the
   dependency sources and their license texts are available on a clean checkout.
