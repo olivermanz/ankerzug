@@ -1,6 +1,6 @@
 <app-welcome />
 <div class="app-shell">
-  <aside class="sidebar">
+  <aside class="sidebar" [attr.inert]="restoringBackup() ? '' : null">
     <a class="brand" href="/" aria-label="Ankerzug Startseite"
       ><span class="brand-mark">◎</span
       ><span>Ankerzug<small>TRAINING MIT PERSPEKTIVE</small></span></a
@@ -86,7 +86,7 @@
       >
     </div>
   </aside>
-  <main>
+  <main [attr.inert]="restoringBackup() ? '' : null">
     <header class="topbar">
       <span>BOGENSPORT <span class="muted">/</span> TRAININGSPLANUNG</span>
       <div
@@ -1962,18 +1962,26 @@
             <span class="spinner" aria-hidden="true"></span>Backup wird erstellt …
           } @else {
             Backup erstellen
-          }</button
-        ><label class="file-button"
-          >Backup wiederherstellen<input
-            type="file"
-            accept="application/json,.json"
-            (change)="restore($event)"
-            [disabled]="!planner.ready()"
-        /></label>
+          }
+        </button>
+        <button
+          class="text-button"
+          (click)="restore()"
+          [disabled]="!planner.ready() || creatingBackup() || restoringBackup()"
+        >
+          @if (restoringBackup()) {
+            <span class="spinner" aria-hidden="true"></span>Backup wird wiederhergestellt …
+          } @else {
+            Backup wiederherstellen
+          }
+        </button>
       </div>
     </footer>
   </main>
 </div>
+@if (restoringBackup()) {
+  <span class="backup-restore-status" role="status">Backup wird wiederhergestellt …</span>
+}
 <datalist id="disciplines">
   <option>Halle</option>
   <option>WA im Freien</option>

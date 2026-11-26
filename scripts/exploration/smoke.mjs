@@ -2,7 +2,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 const native = process.argv.includes('--native');
 if (native && process.platform !== 'linux')
@@ -82,7 +81,7 @@ try {
     );
     run('click', { selector: backupButton });
     window = await dialog();
-    const path = join(session.runDir, 'smoke-backup.json');
+    const path = join(session.runDir, 'smoke-backup.ankerzug.zip');
     run('native', { action: 'keys', window, keys: 'ctrl+a' });
     run('native', { action: 'type', window, text: path });
     run('native', { action: 'screenshot', window });
@@ -91,13 +90,23 @@ try {
     const deadline = Date.now() + 5000;
     while (Date.now() < deadline) {
       try {
-        backup = JSON.parse(await readFile(path, 'utf8'));
+        const result = spawnSync(
+          'python3',
+          [
+            '-c',
+            'import sys, zipfile; print(zipfile.ZipFile(sys.argv[1]).read("backup.json").decode())',
+            path,
+          ],
+          { encoding: 'utf8' },
+        );
+        if (result.status !== 0) throw new Error(result.stderr || 'ZIP backup is not readable');
+        backup = JSON.parse(result.stdout);
         break;
       } catch {
         await new Promise((resolve) => setTimeout(resolve, 100));
       }
     }
-    assert.equal(backup?.formatVersion, 2);
+    assert.equal(backup?.formatVersion, 3);
     assert.ok(backup.workspace.cycles.some((c) => c.name === name));
     const main = run('native', { action: 'windows' }).windows.find((w) =>
       w.title.includes('Trainingsplanung'),

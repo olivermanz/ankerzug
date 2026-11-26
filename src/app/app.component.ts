@@ -97,6 +97,7 @@ export class AppComponent implements OnInit {
   readonly appVersion = signal('In der Browser-Vorschau nicht verfügbar');
   readonly exportingPdf = signal(false);
   readonly creatingBackup = signal(false);
+  readonly restoringBackup = signal(false);
   async exportSessionPdf(cycle: MacroCycle, session: Session): Promise<void> {
     if (this.exportingPdf()) return;
     this.exportingPdf.set(true);
@@ -745,27 +746,19 @@ export class AppComponent implements OnInit {
       this.creatingBackup.set(false);
     }
   }
-  async restore(event: Event): Promise<void> {
-    const input = event.target as HTMLInputElement;
-    const file = input.files?.[0];
-    if (!file) return;
+  async restore(): Promise<void> {
+    if (this.restoringBackup() || this.creatingBackup()) return;
+    this.restoringBackup.set(true);
     try {
-      if (file.size > 200 * 1024 * 1024) throw new Error('Backup ist größer als 200 MiB.');
-      const text = await file.text();
-      const parsed = JSON.parse(text);
-      if (
-        ![1, 2].includes(parsed.formatVersion) ||
-        !Array.isArray(parsed.workspace?.cycles) ||
-        !Array.isArray(parsed.workspace?.templates)
-      )
-        throw new Error('Ungültiges oder inkompatibles Backup.');
-      if (
-        !confirm(
-          `Alle aktuellen Pläne, Vorlagen und Spiele durch ${parsed.workspace.cycles.length} Makrozyklen und ${parsed.workspace.templates.length} Vorlagen sowie ${parsed.workspace.games?.length ?? 0} Spiele aus dem Backup ersetzen? Der bisherige Stand wird als Wiederherstellungskopie gesichert.`,
-        )
-      )
+      const restored = await this.planner.restoreSelected(({ cycles, templates, games }) =>
+        confirm(
+          `Alle aktuellen Pläne, Vorlagen und Spiele durch ${cycles} Makrozyklen und ${templates} Vorlagen sowie ${games} Spiele aus dem Backup ersetzen? Der bisherige Stand wird als Wiederherstellungskopie gesichert.`,
+        ),
+      );
+      if (!restored) {
+        this.message.set('Backup-Wiederherstellung abgebrochen.');
         return;
-      await this.planner.restore(text);
+      }
       this.selectedId.set(null);
       this.selectedSession.set(null);
       this.proposal.set(null);
@@ -774,7 +767,7 @@ export class AppComponent implements OnInit {
     } catch (e) {
       this.message.set((e as Error).message);
     } finally {
-      input.value = '';
+      this.restoringBackup.set(false);
     }
   }
   async recover(): Promise<void> {

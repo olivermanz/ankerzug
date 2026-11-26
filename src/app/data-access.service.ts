@@ -3,7 +3,7 @@ import { GameAttachment } from './models';
 import { MacroCyclePackage, TemplatePackage } from './exports/exchange';
 import { inject, Injectable, InjectionToken } from '@angular/core';
 import { invoke } from '@tauri-apps/api/core';
-import { AppError, SaveInput, Snapshot } from './models';
+import { AppError, BackupSelection, SaveInput, Snapshot } from './models';
 
 export type TauriInvoker = <T>(command: string, args?: Record<string, unknown>) => Promise<T>;
 
@@ -90,6 +90,18 @@ export class DataAccessService {
   }
   backup(): Promise<string | null> {
     return this.call('create_backup');
+  }
+  selectBackup(): Promise<BackupSelection | null> {
+    return this.call('select_backup');
+  }
+  readBackupPdf(token: number, id: string): Promise<number[]> {
+    return this.call('read_backup_pdf', { token, id });
+  }
+  applyZipBackup(token: number, expectedRevision: number): Promise<Snapshot> {
+    return this.call('apply_zip_backup', { token, expectedRevision });
+  }
+  discardZipBackup(token: number): Promise<void> {
+    return this.call('discard_zip_backup', { token });
   }
   restore(contents: string, expectedRevision: number): Promise<Snapshot> {
     return this.call('restore_backup', { contents, expectedRevision });

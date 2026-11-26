@@ -1,5 +1,5 @@
 import { validateContentAttachment } from './attachments/content-attachment';
-import { Game, GameAttachment } from './models';
+import { BackupCounts, Game, GameAttachment, Snapshot } from './models';
 import {
   GameImportPreview,
   newGame,
@@ -886,22 +886,60 @@ export class PlannerService {
   async recover(): Promise<void> {
     await this.settled();
     const snapshot = await this.access.recover(this.revision);
-    snapshot.workspace.cycles.forEach(
-      (cycle) => (cycle.planning = normalizePlanning(cycle.planning)),
-    );
-    sequenceWorkspace(snapshot.workspace);
-    this.workspace.set(snapshot.workspace);
-    this.revision = snapshot.revision;
-    this.changeVersion = 0;
-    this.savedVersion = 0;
-    this.status.set('saved');
-    this.error.set('');
+    this.acceptRestore(snapshot);
+  }
+  async restoreSelected(confirm: (counts: BackupCounts) => boolean): Promise<boolean> {
+    const selected = await this.access.selectBackup();
+    if (!selected) return false;
+    if (selected.kind === 'legacy') {
+      const parsed = JSON.parse(selected.contents);
+      if (
+        ![1, 2].includes(parsed.formatVersion) ||
+        !Array.isArray(parsed.workspace?.cycles) ||
+        !Array.isArray(parsed.workspace?.templates)
+      ) {
+        throw new Error('Ungültiges oder inkompatibles Backup.');
+      }
+      if (
+        !confirm({
+          cycles: parsed.workspace.cycles.length,
+          templates: parsed.workspace.templates.length,
+          games: parsed.workspace.games?.length ?? 0,
+        })
+      )
+        return false;
+      await this.restore(selected.contents);
+      return true;
+    }
+    let applied = false;
+    try {
+      if (!confirm(selected)) return false;
+      for (const pdf of selected.pdfs) {
+        const bytes = await this.access.readBackupPdf(selected.token, pdf.id);
+        const attachment = { filename: pdf.filename, bytes };
+        if (pdf.content) {
+          await validateContentAttachment(attachment);
+        } else {
+          await this.pdfValidator.validateAttachment(attachment);
+        }
+      }
+      await this.settled();
+      const snapshot = await this.access.applyZipBackup(selected.token, this.revision);
+      applied = true;
+      this.acceptRestore(snapshot);
+      return true;
+    } finally {
+      if (!applied) await this.access.discardZipBackup(selected.token).catch(() => undefined);
+    }
   }
   async restore(contents: string): Promise<void> {
     await this.settled();
     const envelope = JSON.parse(contents);
     if (envelope.formatVersion === 2) await this.validatePackageAttachments(envelope.workspace);
     const snapshot = await this.access.restore(contents, this.revision);
+    this.acceptRestore(snapshot);
+  }
+  private acceptRestore(snapshot: Snapshot): void {
     snapshot.workspace.cycles.forEach(
       (cycle) => (cycle.planning = normalizePlanning(cycle.planning)),
     );
