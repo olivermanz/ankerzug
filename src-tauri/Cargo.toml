@@ -1,6 +1,6 @@
 [package]
 name = "ankerzug"
-version = "0.2.0"
+version = "0.2.1"
 license = "GPL-3.0-only"
 edition = "2024"
 rust-version = "1.99"
