@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, realpathSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { basename, join, resolve } from 'node:path';
 import { createRequire } from 'node:module';
@@ -11,72 +11,67 @@ const cargoToml = readFileSync(join(root, 'src-tauri', 'Cargo.toml'), 'utf8');
 const cargoLock = readFileSync(join(root, 'src-tauri', 'Cargo.lock'), 'utf8');
 const normalize = (value) => value.replace(/\r\n?/g, '\n').trimEnd();
 
-function findTextFile(directory, names) {
-  const entries = readdirSync(directory, { withFileTypes: true });
-  const match = entries.find((entry) => entry.isFile() && names.test(entry.name));
-  if (!match) throw new Error(`No license text found in ${directory}`);
-  return { name: match.name, text: normalize(readFileSync(join(directory, match.name), 'utf8')) };
+function compareText(a, b) {
+  return a < b ? -1 : a > b ? 1 : 0;
 }
 
-function resolvePackageManifest(name, packageRequire = require) {
-  try {
-    return packageRequire.resolve(`${name}/package.json`);
-  } catch {
-    const prefix = `${name.replace('/', '+')}@`;
-    const pnpmStore = join(root, 'node_modules', '.pnpm');
-    const candidate = readdirSync(pnpmStore).find((entry) => entry.startsWith(prefix));
-    const manifestPath =
-      candidate && join(pnpmStore, candidate, 'node_modules', name, 'package.json');
-    if (!manifestPath || !existsSync(manifestPath)) throw new Error(`missing package ${name}`);
-    return manifestPath;
+function readTextFiles(directory, names) {
+  return readdirSync(directory, { withFileTypes: true })
+    .filter((entry) => entry.isFile() && names.test(entry.name))
+    .map((entry) => entry.name)
+    .sort(compareText)
+    .map((name) => ({ name, text: normalize(readFileSync(join(directory, name), 'utf8')) }));
+}
+
+function attributionFiles(directory) {
+  const licenses = readTextFiles(directory, /^(license|copying)([-_.].*)?$/i);
+  if (!licenses.length) throw new Error(`No license text found in ${directory}`);
+  return [...licenses, ...readTextFiles(directory, /^notice(\..*)?$/i)];
+}
+
+function resolvePackageManifest(name, packageRequire) {
+  // Walk Node's lookup paths from the importing package. Reading the manifest
+  // directly also works when a package's exports hide package.json.
+  for (const directory of packageRequire.resolve.paths(name) ?? []) {
+    const manifest = join(directory, name, 'package.json');
+    if (existsSync(manifest)) return realpathSync(manifest);
   }
+  throw new Error(`Missing production dependency ${name}`);
 }
 
 function javascriptComponents() {
-  const pending = Object.keys(packageJson.dependencies).sort((a, b) => a.localeCompare(b));
+  const pending = Object.keys(packageJson.dependencies).map((name) =>
+    resolvePackageManifest(name, require),
+  );
   const visited = new Set();
-  const components = [];
+  const components = new Map();
   while (pending.length) {
-    const name = pending.shift();
-    if (visited.has(name)) continue;
-    visited.add(name);
-    const manifestPath = resolvePackageManifest(name);
-    const directory = resolve(manifestPath, '..');
+    const manifestPath = pending.pop();
+    if (visited.has(manifestPath)) continue;
+    visited.add(manifestPath);
     const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
-    const license = manifest.license;
+    const { name, version, license } = manifest;
     if (!license || typeof license !== 'string') {
       throw new Error(`${name}: unrecognized or missing SPDX license expression`);
     }
-    const licenseFile = findTextFile(directory, /^(license|copying)([-_.].*)?$/i);
-    const notice = readdirSync(directory, { withFileTypes: true }).find(
-      (entry) => entry.isFile() && /^notice(\..*)?$/i.test(entry.name),
-    );
     const packageRequire = createRequire(manifestPath);
-    for (const dependency of Object.keys(manifest.dependencies ?? {}).sort((a, b) =>
-      a.localeCompare(b),
-    )) {
-      try {
-        resolvePackageManifest(dependency, packageRequire);
-        pending.push(dependency);
-      } catch {
-        throw new Error(`${name}@${manifest.version}: missing production dependency ${dependency}`);
-      }
+    for (const dependency of Object.keys(manifest.dependencies ?? {})) {
+      pending.push(resolvePackageManifest(dependency, packageRequire));
     }
-    components.push({
-      ecosystem: 'JavaScript production dependency',
-      name,
-      version: manifest.version,
-      license,
-      source:
-        typeof manifest.repository === 'string' ? manifest.repository : manifest.repository?.url,
-      licenseFile,
-      notice: notice && {
-        name: notice.name,
-        text: normalize(readFileSync(join(directory, notice.name), 'utf8')),
-      },
-    });
+    const key = `${name}@${version}`;
+    if (!components.has(key)) {
+      components.set(key, {
+        ecosystem: 'JavaScript production dependency',
+        name,
+        version,
+        license,
+        source:
+          typeof manifest.repository === 'string' ? manifest.repository : manifest.repository?.url,
+        files: attributionFiles(resolve(manifestPath, '..')),
+      });
+    }
   }
-  return components.sort((a, b) => a.name.localeCompare(b.name));
+  return [...components.values()];
 }
 
 function lockedCargoVersion(name) {
@@ -88,55 +83,44 @@ function lockedCargoVersion(name) {
   return match[1];
 }
 
+function cachedCrate(name, version) {
+  const registry = join(process.env.CARGO_HOME ?? join(homedir(), '.cargo'), 'registry', 'src');
+  const indexes = existsSync(registry) ? readdirSync(registry).sort(compareText) : [];
+  for (const index of indexes) {
+    const directory = join(registry, index, `${name}-${version}`);
+    if (existsSync(join(directory, 'Cargo.toml'))) return directory;
+  }
+  throw new Error(
+    `${name}@${version}: crate source is not cached; run cargo fetch before generating notices`,
+  );
+}
+
 function rustComponents() {
   const dependencies = cargoToml.match(/\[dependencies\]([\s\S]*?)(?:\n\[|$)/)?.[1] ?? '';
   // Optional exploration tooling is absent from production builds.
   return [...dependencies.matchAll(/^([\w-]+)\s*=([^\n]*)/gm)]
     .filter((match) => !/optional\s*=\s*true/.test(match[2]))
     .map((match) => match[1])
-    .sort((a, b) => a.localeCompare(b))
     .map((name) => {
       const version = lockedCargoVersion(name);
-      const registry = join(homedir(), '.cargo', 'registry', 'src');
-      const registryIndex = existsSync(registry) ? readdirSync(registry)[0] : undefined;
-      const directory = registryIndex && join(registry, registryIndex, `${name}-${version}`);
-      if (!directory || !existsSync(directory)) {
-        throw new Error(
-          `${name}@${version}: crate source is not cached; run cargo fetch before generating notices`,
-        );
-      }
+      const directory = cachedCrate(name, version);
       const manifest = readFileSync(join(directory, 'Cargo.toml'), 'utf8');
       const license = manifest.match(/^license\s*=\s*"([^"]+)"/m)?.[1];
       if (!license) throw new Error(`${name}@${version}: missing SPDX license expression`);
-      const licenseFile = findTextFile(directory, /^(license|copying)([-_.].*)?$/i);
-      const notice = readdirSync(directory, { withFileTypes: true }).find(
-        (entry) => entry.isFile() && /^notice(\..*)?$/i.test(entry.name),
-      );
       return {
         ecosystem: 'Rust native dependency',
         name,
         version,
         license,
         source: `https://crates.io/crates/${name}/${version}`,
-        licenseFile,
-        notice: notice && {
-          name: notice.name,
-          text: normalize(readFileSync(join(directory, notice.name), 'utf8')),
-        },
+        files: attributionFiles(directory),
       };
     });
 }
 
 function sqliteComponent() {
   const version = lockedCargoVersion('libsqlite3-sys');
-  const registry = join(homedir(), '.cargo', 'registry', 'src');
-  const registryIndex = existsSync(registry) ? readdirSync(registry)[0] : undefined;
-  const header =
-    registryIndex &&
-    join(registry, registryIndex, `libsqlite3-sys-${version}`, 'sqlite3', 'sqlite3.h');
-  if (!header || !existsSync(header)) {
-    throw new Error(`libsqlite3-sys@${version}: bundled SQLite source is not cached`);
-  }
+  const header = join(cachedCrate('libsqlite3-sys', version), 'sqlite3', 'sqlite3.h');
   const sqliteVersion = readFileSync(header, 'utf8').match(
     /#define SQLITE_VERSION\s+"([^"]+)"/,
   )?.[1];
@@ -148,24 +132,29 @@ function sqliteComponent() {
     version: sqliteVersion,
     license: 'LicenseRef-Public-Domain',
     source: 'https://sqlite.org/copyright.html',
-    licenseFile: {
-      name: 'Public domain notice',
-      text: 'The SQLite source code is in the public domain.',
-    },
+    files: [
+      {
+        name: 'Public domain notice',
+        text: 'The SQLite source code is in the public domain.',
+      },
+    ],
   };
 }
 
 function formatComponent(component) {
   const source = component.source ? `\nSource: ${component.source}` : '';
-  const notice = component.notice
-    ? `\n\n### ${component.notice.name}\n\n\`\`\`text\n${component.notice.text}\n\`\`\``
-    : '';
-  return `## ${component.name} ${component.version}\n\nType: ${component.ecosystem}<br>\nSPDX: ${component.license}${source}\n\n### ${component.licenseFile.name}\n\n\`\`\`text\n${component.licenseFile.text}\n\`\`\`${notice}`;
+  const files = component.files
+    .map(({ name, text }) => `### ${name}\n\n\`\`\`text\n${text}\n\`\`\``)
+    .join('\n\n');
+  return `## ${component.name} ${component.version}\n\nType: ${component.ecosystem}<br>\nSPDX: ${component.license}${source}\n\n${files}`;
 }
 
 export function generateNotices() {
   const components = [...javascriptComponents(), ...rustComponents(), sqliteComponent()].sort(
-    (a, b) => `${a.name}@${a.version}`.localeCompare(`${b.name}@${b.version}`),
+    (a, b) =>
+      compareText(a.name.toLowerCase(), b.name.toLowerCase()) ||
+      compareText(a.name, b.name) ||
+      compareText(a.version, b.version),
   );
   const noto = normalize(readFileSync(join(root, 'src', 'app', 'pdf', 'OFL.txt'), 'utf8'));
   return `${normalize(`
