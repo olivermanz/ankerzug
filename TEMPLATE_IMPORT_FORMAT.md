@@ -45,11 +45,11 @@ keys avoid relying on these compatibility behaviors.
 | `name`                   | Nonblank string                          | Source title or a concise descriptive title; use `"Importierte Trainingseinheit"` if no title is available. |
 | `description`            | string                                   | Shared training intention or introductory description. Use `""` if absent.                                  |
 | `defaultDuration`        | integer, 1–4294967295                    | Total planned minutes. Use the stated total or the sum of known block durations.                            |
-| `sessionType`            | string from the session-type list        | Use the explicitly described training focus. Clarify if it cannot be determined.                            |
+| `sessionType`            | string from the session-type list        | Use the explicitly described training focus (“Schwerpunkt”). Clarify if it cannot be determined.            |
 | `areas`                  | array of strings from the area list      | Retired compatibility field. Emit `[]` for new templates.                                                   |
-| `volume`                 | integer 1–5 or `null`                    | Explicit planned volume profile; otherwise `null`.                                                          |
-| `intensity`              | integer 1–5 or `null`                    | Explicit planned intensity profile; otherwise `null`.                                                       |
-| `competitionSpecificity` | integer 1–5 or `null`                    | Explicit planned competition-specificity profile; otherwise `null`.                                         |
+| `volume`                 | integer 1–5 or `null`                    | Compatibility field. Emit `null` for new templates.                                                         |
+| `intensity`              | integer 1–5 or `null`                    | Compatibility field. Emit `null` for new templates.                                                         |
+| `competitionSpecificity` | integer 1–5 or `null`                    | Compatibility field. Emit `null` for new templates.                                                         |
 | `contents`               | array of block objects                   | Training blocks in their intended order.                                                                    |
 
 The importer permits an empty `contents` array, but a converted session with
@@ -76,7 +76,7 @@ Do not reuse the example IDs across multiple templates.
 | `plannedLoad`        | integer 1–5 or `null`                    | Explicit planned block-load value on this exact scale; otherwise `null`.                                                        |
 | `actualLoad`         | `null` for new conversions               | Compatibility field. Do not populate measurements or results.                                                                   |
 | `exerciseReference`  | string                                   | An explicit exercise reference if supplied; otherwise `""`. Do not invent an exercise registry ID.                              |
-| `notes`              | string                                   | Additional planning notes if supplied; otherwise `""`.                                                                          |
+| `notes`              | string                                   | Additional planning notes shown as “Anmerkungen”. Use up to 400 characters for new conversions, or `""` if absent.              |
 
 `startOffsetMinutes + durationMinutes` must not exceed 4294967295.
 Unknown optional numbers are `null`; **0 means an explicitly known zero**.
@@ -90,10 +90,11 @@ dimension) and the file may contain at most 1,000,000 bytes. Omit this field
 when the trainer has supplied no attachment. Blocks that reference the same
 attachment ID must provide identical names and bytes.
 
-Template block editors currently hide some metadata, including planned arrow
-counts/load, subcategory, exercise reference and notes. Keep the actual trainer
-instructions in the visible `content` field and equipment in `material`; the
-other fields remain stored data rather than guaranteed visible controls.
+The template block editor shows instructions (`content`), equipment (`material`)
+and additional planning notes (`notes`). Keep longer source passages in `content`
+to preserve them in full. Planned arrow counts/load, subcategory and exercise
+reference are stored without editor controls. Applying a template preserves the
+target session's volume, intensity and competition specificity.
 
 ## Allowed session types
 
@@ -195,11 +196,13 @@ category values. Block categories are independent of the template focus.
    blocks to hide it. A mismatch is permitted by the importer but can produce a
    duration warning. If no total is supplied and all block durations are known,
    use their sum.
-7. Set unspecified profiles and counts to `null`. Qualitative phrases such as
-   "intensiv" do not establish a numeric 1–5 profile. Keep them in the training
-   text. Derive a planned arrow total only when explicit, for example 12 passes
-   of 6 arrows give 72. Do not treat distance, draw weight, percentages, scores
-   or previously measured values as planned arrows or load dimensions.
+7. Set template `volume`, `intensity` and `competitionSpecificity` to `null` in
+   new conversions. Keep reusable source instructions about effort, volume or
+   competition conditions in the training text. Set unspecified block counts
+   and load to `null`. Derive a planned arrow total only when explicit, for
+   example 12 passes of 6 arrows give 72. Do not treat distance, draw weight,
+   percentages, scores or previously measured values as planned arrows or load
+   dimensions.
 8. Generate fresh, globally unique IDs. Emit all listed fields. For new source
    conversions, keep `actualArrowCount`, `actualDuration` and `actualLoad` at
    `null`. Preserve shared planned instructions rather than individual results,
@@ -215,10 +218,11 @@ category values. Block categories are independent of the template focus.
 Source: "Techniktraining, 90 Minuten. 20 Minuten Aufwärmen mit Theraband.
 55 Minuten Technik: 12 Passen à 6 Pfeile, mit Bogen, Pfeilen und Scheibe;
 saubere Ankerposition und ruhiger Nachhalteweg. 5 Minuten Trinkpause.
-10 Minuten Cool-down und lockeres Dehnen."
+10 Minuten Cool-down und lockeres Dehnen. Hinweis zum Cool-down: Therabänder
+für die nächste Gruppe bereitlegen."
 
-The 72-arrow target is planned and calculated from the explicit source. No
-numeric profiles are supplied. Offsets are 0, 20, 75 and 80 minutes.
+The 72-arrow target is calculated from the explicit source. Offsets are 0, 20,
+75 and 80 minutes.
 
 ```json
 {
@@ -303,7 +307,7 @@ numeric profiles are supplied. Offsets are 0, 20, 75 and 80 minutes.
           "plannedLoad": null,
           "actualLoad": null,
           "exerciseReference": "",
-          "notes": ""
+          "notes": "Therabänder für die nächste Gruppe bereitlegen."
         }
       ]
     }
@@ -317,10 +321,11 @@ Use this request together with this document and the session source:
 
 > Wandle die beigefügte Beschreibung in ein Ankerzug-Vorlagenpaket gemäß dieser
 > Formatbeschreibung um. Erhalte die geplanten Inhalte, Reihenfolge und
-> Materialangaben. Erfinde keine Trainingswerte oder zusätzlichen Blöcke. Frage
-> nach fehlenden Pflichtangaben. Unbekannte optionale Werte bleiben `null`, `""`
-> oder `[]` entsprechend dem Feld. Gib nach Klärung eine importierbare UTF-8-JSON-Datei
-> mit `kind: "ankerzug-templates"`, `formatVersion: 1` und `dataVersion: 2` aus.
+> Materialangaben und Anmerkungen. Erfinde keine Trainingswerte oder zusätzlichen
+> Blöcke. Frage nach fehlenden Pflichtangaben. Unbekannte optionale Werte bleiben
+> `null`, `""` oder `[]` entsprechend dem Feld. Gib nach Klärung eine importierbare
+> UTF-8-JSON-Datei mit `kind: "ankerzug-templates"`, `formatVersion: 1` und
+> `dataVersion: 2` aus.
 
 ## Final verification
 
@@ -333,6 +338,8 @@ Use this request together with this document and the session source:
   are disclosed rather than silently repaired.
 - Source text and material are preserved; generated measurement fields are null.
 - New templates and blocks use empty `areas` arrays.
+- New templates use `null` for all three template profile fields. New block
+  notes fit the 400-character editor limit.
 - The JSON file parses, contains no wrapper prose and is at most 20 MiB.
 
 ## Maintenance references
