@@ -129,10 +129,30 @@
           <div>
             <div class="eyebrow">GLOBALE EINSTELLUNGEN</div>
             <h1>Einstellungen</h1>
-            <p>Planungsvorlage und Farben gelten für neue und bestehende Makrozyklen.</p>
           </div>
         </div>
-        @if (planner.workspace().planningTemplate; as planning) {
+        <nav class="actions" aria-label="Einstellungsbereiche">
+          <button
+            type="button"
+            [class.primary]="settingsSection() === 'planning'"
+            [attr.aria-pressed]="settingsSection() === 'planning'"
+            (click)="settingsSection.set('planning')"
+          >
+            Planung
+          </button>
+          <button
+            type="button"
+            [class.primary]="settingsSection() === 'mcp'"
+            [attr.aria-pressed]="settingsSection() === 'mcp'"
+            (click)="settingsSection.set('mcp')"
+          >
+            MCP
+          </button>
+        </nav>
+        @if (settingsSection() === 'mcp') {
+          <app-mcp-settings />
+        } @else if (planner.workspace().planningTemplate; as planning) {
+          <p>Planungsvorlage und Farben gelten für neue und bestehende Makrozyklen.</p>
           <section class="shared-settings session-type-colors">
             <h3>Farben der Schwerpunkte</h3>
             <div class="session-type-color-grid">

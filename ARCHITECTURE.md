@@ -759,3 +759,45 @@ PDF exports, backups and portable packages can resolve the original bytes. Packa
 import assigns new IDs while preserving references shared within a package.
 The two session PDF layouts number attachments in content order, then render
 their pages below numbered headings at the end of the document.
+
+## Local MCP proof of concept
+
+The running desktop application can expose a stateless Streamable HTTP endpoint
+at `http://localhost:39227/mcp`. Rust binds only IPv4 loopback and checks the
+exact local Host and port. Requests carrying an Origin are rejected because the
+endpoint serves native clients only. Rust checks the current Bearer token on
+every request and rechecks after reading the body. HTTP is unencrypted on
+loopback. The server uses one exchange per connection, up to 16 concurrent
+connections and a 16 KiB request body limit. GET and DELETE return 405 because the
+proof of concept uses finite POST exchanges without server-initiated streams or
+MCP session IDs.
+
+The Angular main window registers a dedicated Tauri channel after loading the
+browser SDK. Rust sends the allowlisted HTTP headers, UTF-8 body, effective
+access mode and a native correlation ID. The Angular dispatcher reconstructs the
+web-standard request without making a network call. It registers and runs
+`echo` and `write_probe` with the official TypeScript SDK. The write handler
+rejects calls in read mode using the mode supplied through IPC. The caller
+cannot supply that mode through HTTP. The SDK handles protocol validation,
+2025-era initialization and modern per-request discovery. Angular returns the
+finite response and its media type over a typed Tauri command. Rust returns
+503 when the webview is unavailable and 504 after a five-second IPC timeout.
+Pending requests are released on reply, timeout, window detach and shutdown.
+
+MCP is disabled by default, with read mode and token authentication selected.
+The main window starts the listener if the saved preference is enabled. Saving
+settings can start or stop the listener without restarting the application.
+A bind failure is shown in the settings and saving again retries the bind.
+Disabling MCP or exiting the app closes the listener and cancels active
+connections. Changes to access mode and authentication apply to new requests
+on the same endpoint. The write probe makes no persistent changes.
+
+MCP settings occupy a separate atomically replaced file in the per-user
+application data directory. Unix enforces private file permissions and Windows
+inherits the user-profile directory ACL. This proof of concept uses file access
+controls for protection at rest. The editable token is available to the local
+user account, including through the explicit copy action. Ankerzug requests
+the platform's clipboard-history exclusion where supported. The settings file
+is outside the SQLite workspace, its recovery snapshots, exports and backups.
+Credentials are excluded from HTTP diagnostics and from the IPC request sent
+to the dispatcher.

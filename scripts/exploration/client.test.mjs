@@ -68,11 +68,27 @@ test('fill uses real WebDriver element commands and preserves Unicode', async (t
       '/session/isolated/elements',
       '/session/isolated/element/field/enabled',
       '/session/isolated/element/field/displayed',
+      '/session/isolated/element/field/property/type',
       '/session/isolated/element/field/clear',
       '/session/isolated/element/field/value',
     ],
   );
   assert.deepEqual(h.received.at(-1).body, { text: 'Übung – Spaß' });
+});
+
+test('password fills omit the value from evidence and errors', async (t) => {
+  const password = 'test-secret';
+  const h = await harness(t, (entry) => {
+    if (entry.path.endsWith('/elements')) {
+      return { value: [{ 'element-6066-11e4-a52e-4f735466cecf': 'field' }] };
+    }
+    if (entry.path.endsWith('/property/type')) return { value: 'password' };
+    if (entry.path.endsWith('/value')) return { status: 400, value: { message: password } };
+    return { value: null };
+  });
+  await assert.rejects(h.explorer.fill('input', password), /Could not fill the password field/);
+  assert.deepEqual(h.received.at(-1).body, { text: password });
+  assert.doesNotMatch(await readFile(join(h.runDir, 'actions.jsonl'), 'utf8'), /test-secret/);
 });
 
 test('save-state timeout blocks shutdown when writes are invalid or pending', async (t) => {

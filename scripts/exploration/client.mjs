@@ -19,8 +19,13 @@ export class Explorer {
   constructor(state) {
     this.state = state;
   }
-  async call(method, path, body) {
-    const entry = { time: new Date().toISOString(), method, path, body };
+  async call(method, path, body, { sensitive = false } = {}) {
+    const entry = {
+      time: new Date().toISOString(),
+      method,
+      path,
+      body: sensitive ? undefined : body,
+    };
     try {
       const value = await request(
         this.state.endpoint,
@@ -31,8 +36,9 @@ export class Explorer {
       await this.log({ ...entry, ok: true });
       return value;
     } catch (error) {
-      await this.log({ ...entry, ok: false, error: error.message });
-      throw error;
+      const failure = sensitive ? new Error('Could not fill the password field') : error;
+      await this.log({ ...entry, ok: false, error: failure.message });
+      throw failure;
     }
   }
   log(entry) {
@@ -66,8 +72,11 @@ export class Explorer {
   async fill(selector, text) {
     if (typeof text !== 'string') throw new Error('fill requires a text string');
     const id = await this.element(selector);
+    const type = await this.call('GET', `/element/${id}/property/type`);
     await this.call('POST', `/element/${id}/clear`, {});
-    return this.call('POST', `/element/${id}/value`, { text: String(text) });
+    const sensitive = type === 'password';
+    const value = await this.call('POST', `/element/${id}/value`, { text }, { sensitive });
+    return sensitive ? null : value;
   }
   async select(selector, value) {
     await this.element(selector);
@@ -145,7 +154,7 @@ export class Explorer {
           .filter(visible).map(el => ({
             selector: selector(el), tag: el.tagName.toLowerCase(), type: el.type,
             label: el.getAttribute('aria-label') || [...(el.labels || [])].map(l => l.innerText).join(' ') || el.innerText || el.title || el.placeholder,
-            value: el.value, disabled: el.disabled, checked: el.checked,
+            value: el.type === 'password' ? undefined : el.value, disabled: el.disabled, checked: el.checked,
             expanded: el.getAttribute('aria-expanded'), invalid: el.getAttribute('aria-invalid'),
             options: el.options ? [...el.options].map(o => ({value: o.value, text: o.text, disabled: o.disabled})) : undefined,
           })),

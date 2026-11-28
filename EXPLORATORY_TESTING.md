@@ -469,3 +469,64 @@ and check the references, headings, page order, rotation and margins. Cancel
 replacement and try an oversized file and a multi-page file with a non-A4 page.
 Verify the previous preview survives. Restart after autosave and check the marker,
 then export/import a template or cycle and inspect the PDF in the imported copy.
+
+## Local MCP acceptance (Issue 27)
+
+Build the native exploration executable and start an isolated run as described
+above. In **Einstellungen → MCP**, check the disabled state, **Lesen** and the
+enabled authentication default. Enable MCP and save. Check the displayed
+`http://localhost:39227/mcp` endpoint and that a token is generated. Confirm
+with the OS socket listing that the application listens on `127.0.0.1:39227`.
+If the port is already in use, check the bind error and retry after it is free.
+
+Use a logged-in Codex CLI for the client smoke test. Copy the test token from the
+isolated app and place it in a temporary process environment variable named
+`ANKERZUG_MCP_TOKEN`. Keep its value out of command arguments, screenshots and
+logs. From a temporary working directory without project instructions, run:
+
+```sh
+codex exec --ephemeral --ignore-user-config --skip-git-repo-check --sandbox read-only --json \
+  -c 'mcp_servers.ankerzug.url="http://localhost:39227/mcp"' \
+  -c 'mcp_servers.ankerzug.bearer_token_env_var="ANKERZUG_MCP_TOKEN"' \
+  -c 'mcp_servers.ankerzug.required=true' \
+  'Discover the Ankerzug MCP tools and call echo with the value Grüße aus Codex. Report the returned value.'
+```
+
+Verify that the trace includes a successful `mcp_tool_call` for `echo` with the
+same input and output. Tool discovery should include `write_probe`. Confirm
+that the write probe fails with **Lesen** and passes after saving **Lesen und
+Schreiben**. Run concurrent calls with distinct values and verify both replies.
+With authentication active, verify 401 without a credential or with an invalid
+credential. Rotate the token and verify the old value returns 401 and the copied
+new value works. Edit and save a token, then verify that clearing the field while
+authentication is active produces a validation error. Turn off authentication,
+verify **Ihr MCP Endpunkt ist ungeschützt** appears in red, and repeat the
+smoke with the Codex bearer-token option omitted. Verify a request carrying an
+Origin header still returns 403.
+
+Restart through the exploration CLI and verify the enabled state, endpoint, mode,
+authentication and token survive. Disable MCP and confirm that the port stops
+accepting connections. Re-enable, quit the app and confirm the port closes.
+Run the ordinary exploration restart smoke as well. Use an isolated test token
+and release it from the shell environment when finished.
+
+The production build embeds the SDK and uses each platform's system webview and
+clipboard. Check the locked CI packaging matrix and repeat the native smoke on
+installed Windows, macOS and Linux builds for release acceptance. On Linux,
+include the clipboard session types targeted by the distribution, including X11
+and supported Wayland compositors.
+
+### macOS MCP validation — 2026-11-28
+
+On Apple Silicon macOS 26.7.3, the native exploration executable passed the
+regular SQLite restart smoke and the MCP workflow above. Codex CLI
+0.171.0-alpha.13.2 discovered the endpoint and reported a completed
+`mcp_tool_call` with server `ankerzug`, tool `echo`, and the exact input and
+output `Grüße aus Codex`. Separate HTTP checks covered missing and invalid
+credentials, rejection of browser origins, and parallel requests including a
+9 KiB echo. The listener was observed on IPv4 loopback only. The isolated run
+verified bind failure and retry, access mode enforcement, token rotation and
+editing, clipboard copy, the unauthenticated warning, persistence after restart
+and socket closure on disable and quit. The CLI evidence and screenshot were
+retained in the isolated exploration run directory. Interactive acceptance on
+Windows and Linux remains pending.
