@@ -528,5 +528,6 @@ credentials, rejection of browser origins, and parallel requests including a
 verified bind failure and retry, access mode enforcement, token rotation and
 editing, clipboard copy, the unauthenticated warning, persistence after restart
 and socket closure on disable and quit. The CLI evidence and screenshot were
-retained in the isolated exploration run directory. Interactive acceptance on
-Windows and Linux remains pending.
+retained in the isolated exploration run directory. The locked macOS debug
+build also produced an Apple Silicon `Ankerzug.app` with the exploration
+feature disabled. Interactive acceptance on Windows and Linux remains pending.

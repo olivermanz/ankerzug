@@ -1,0 +1,88 @@
+<section class="shared-settings" aria-labelledby="mcp-settings-heading">
+  <h2 id="mcp-settings-heading">MCP</h2>
+  @if (mcp.error(); as error) {
+    <p class="notice danger" role="alert">{{ error }}</p>
+  } @else if (mcp.status(); as status) {
+    @if (draft(); as settings) {
+      <p role="status">
+        @if (status.endpoint; as endpoint) {
+          Endpunkt <code>{{ endpoint }}</code>
+        } @else if (!status.settings.enabled) {
+          MCP ist deaktiviert.
+        }
+      </p>
+      @if (status.error; as error) {
+        <p class="notice danger" role="alert">{{ error }}</p>
+      }
+      @if (!status.settings.authentication) {
+        <p class="mcp-warning" role="alert">Ihr MCP Endpunkt ist ungeschützt</p>
+      }
+      <form (ngSubmit)="save(settings)">
+        <div class="form-grid">
+          <label class="mcp-check">
+            <input
+              type="checkbox"
+              name="enabled"
+              [ngModel]="settings.enabled"
+              (ngModelChange)="edit('enabled', $event)"
+              [disabled]="busy()"
+            />
+            MCP aktivieren
+          </label>
+          <label>
+            Zugriffsmodus
+            <select
+              name="mode"
+              [ngModel]="settings.mode"
+              (ngModelChange)="edit('mode', $event)"
+              [disabled]="busy()"
+            >
+              <option value="read">Lesen</option>
+              <option value="readWrite">Lesen und Schreiben</option>
+            </select>
+          </label>
+          <label>
+            API-Token
+            <input
+              type="password"
+              name="token"
+              autocomplete="off"
+              spellcheck="false"
+              maxlength="512"
+              [ngModel]="settings.token"
+              (ngModelChange)="edit('token', $event)"
+              [disabled]="busy()"
+            />
+          </label>
+          <label class="mcp-check">
+            <input
+              type="checkbox"
+              name="disableAuth"
+              [ngModel]="!settings.authentication"
+              (ngModelChange)="edit('authentication', !$event)"
+              [disabled]="busy()"
+            />
+            Token-Authentifizierung abschalten
+          </label>
+        </div>
+        <div class="actions">
+          <button type="submit" class="primary" [disabled]="busy()">
+            MCP-Einstellungen speichern
+          </button>
+          <button type="button" (click)="rotate()" [disabled]="busy()">Token rotieren</button>
+          <button type="button" (click)="copyToken()" [disabled]="busy() || !status.settings.token">
+            Aktuellen Token kopieren
+          </button>
+        </div>
+      </form>
+      @if (error(); as error) {
+        <p class="notice danger" role="alert">{{ error }}</p>
+      }
+      @if (notice(); as notice) {
+        <p class="notice" role="status">{{ notice }}</p>
+      }
+    }
+  } @else {
+    <p role="status">MCP-Einstellungen werden geladen …</p>
+  }
+</section>
