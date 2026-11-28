@@ -775,10 +775,13 @@ MCP session IDs.
 The Angular main window registers a dedicated Tauri channel after loading the
 browser SDK. Rust sends the allowlisted HTTP headers, UTF-8 body, effective
 access mode and a native correlation ID. The Angular dispatcher reconstructs the
-web-standard request without making a network call. It registers and runs
-`echo` and `write_probe` with the official TypeScript SDK. The write handler
-rejects calls in read mode using the mode supplied through IPC. The caller
-cannot supply that mode through HTTP. The SDK handles protocol validation,
+web-standard request without making a network call. It registers only the
+parameterless read tool `get_version` with the official TypeScript SDK. The
+Angular handler reads the running application's version through Tauri's
+existing app API and returns `{ version }` as structured content. The handler
+checks access using the mode supplied through IPC. The caller cannot supply
+that mode through HTTP. Internal tests exercise write denial with a handler
+double. The SDK handles protocol validation,
 2025-era initialization and modern per-request discovery. Angular returns the
 finite response and its media type over a typed Tauri command. Rust returns
 503 when the webview is unavailable and 504 after a five-second IPC timeout.
@@ -790,7 +793,7 @@ settings can start or stop the listener without restarting the application.
 A bind failure is shown in the settings and saving again retries the bind.
 Disabling MCP or exiting the app closes the listener and cancels active
 connections. Changes to access mode and authentication apply to new requests
-on the same endpoint. The write probe makes no persistent changes.
+on the same endpoint. Version lookup makes no persistent changes.
 
 MCP settings occupy a separate atomically replaced file in the per-user
 application data directory. Unix enforces private file permissions and Windows

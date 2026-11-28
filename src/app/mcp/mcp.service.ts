@@ -1,4 +1,5 @@
 import { Injectable, inject, signal } from '@angular/core';
+import { getVersion } from '@tauri-apps/api/app';
 import { Channel, isTauri } from '@tauri-apps/api/core';
 import { DataAccessService } from '../data-access.service';
 import type { McpAccessMode, McpRequest } from './mcp-transport';
@@ -54,7 +55,7 @@ export class McpService {
     request: McpRequest,
     dispatch: typeof import('./mcp-transport').dispatchMcp,
   ): Promise<void> {
-    const response = await dispatch(request).catch(() => ({
+    const response = await dispatch(request, getVersion).catch(() => ({
       status: 502,
       contentType: null,
       body: 'MCP webview request failed',

@@ -1,4 +1,4 @@
-import { createMcpHandler, McpServer } from '@modelcontextprotocol/server';
+import { createMcpHandler, McpServer, type CallToolResult } from '@modelcontextprotocol/server';
 import { z } from 'zod';
 
 export type McpAccessMode = 'read' | 'readWrite';
@@ -16,39 +16,45 @@ export interface McpResponse {
   body: string;
 }
 
-function createServer(mode: McpAccessMode): McpServer {
+export async function runMcpTool(
+  mode: McpAccessMode,
+  access: 'read' | 'write',
+  run: () => Promise<CallToolResult>,
+): Promise<CallToolResult> {
+  if (access === 'write' && mode !== 'readWrite') {
+    return {
+      isError: true,
+      content: [{ type: 'text', text: 'MCP access mode is read-only.' }],
+    };
+  }
+  return run();
+}
+
+function createServer(mode: McpAccessMode, readAppVersion: () => Promise<string>): McpServer {
   const server = new McpServer({ name: 'ankerzug-mcp-poc', version: '1.0.0' });
   server.registerTool(
-    'echo',
+    'get_version',
     {
-      description: 'Returns the supplied value from the Ankerzug webview.',
+      description: 'Returns the version of the running Ankerzug desktop application.',
       annotations: { readOnlyHint: true },
-      inputSchema: z.object({ value: z.string() }),
+      inputSchema: z.strictObject({}),
+      outputSchema: z.strictObject({ version: z.string() }),
     },
-    ({ value }) => ({ content: [{ type: 'text', text: value }] }),
-  );
-  server.registerTool(
-    'write_probe',
-    {
-      description: 'Tests write permission without modifying any data.',
-      inputSchema: z.object({}),
-    },
-    () => {
-      if (mode !== 'readWrite') {
-        return {
-          isError: true,
-          content: [{ type: 'text', text: 'MCP access mode is read-only.' }],
-        };
-      }
-      return { content: [{ type: 'text', text: 'Write probe accepted.' }] };
-    },
+    () =>
+      runMcpTool(mode, 'read', async () => ({
+        content: [],
+        structuredContent: { version: await readAppVersion() },
+      })),
   );
   return server;
 }
 
-export async function dispatchMcp(request: McpRequest): Promise<McpResponse> {
+export async function dispatchMcp(
+  request: McpRequest,
+  readAppVersion: () => Promise<string>,
+): Promise<McpResponse> {
   // Rust authenticates the caller and selects the access mode for each request.
-  const transport = createMcpHandler(() => createServer(request.mode));
+  const transport = createMcpHandler(() => createServer(request.mode, readAppVersion));
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 4_000);
   try {

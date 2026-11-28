@@ -489,13 +489,16 @@ codex exec --ephemeral --ignore-user-config --skip-git-repo-check --sandbox read
   -c 'mcp_servers.ankerzug.url="http://localhost:39227/mcp"' \
   -c 'mcp_servers.ankerzug.bearer_token_env_var="ANKERZUG_MCP_TOKEN"' \
   -c 'mcp_servers.ankerzug.required=true' \
-  'Discover the Ankerzug MCP tools and call echo with the value Grüße aus Codex. Report the returned value.'
+  'Confirm the discovered Ankerzug MCP tool and call get_version without arguments. Report its structured result.'
 ```
 
-Verify that the trace includes a successful `mcp_tool_call` for `echo` with the
-same input and output. Tool discovery should include `write_probe`. Confirm
-that the write probe fails with **Lesen** and passes after saving **Lesen und
-Schreiben**. Run concurrent calls with distinct values and verify both replies.
+Verify that `tools/list` returns exactly `get_version` with an empty input
+schema. The trace should contain a successful `mcp_tool_call` for
+`get_version` with no arguments and structured content containing just
+`version`. Compare it with the running application's version in **Info**.
+Confirm that the tool works in both **Lesen** and **Lesen und Schreiben**.
+Run concurrent calls with distinct JSON-RPC IDs and verify both replies.
+Write denial is checked with an internal test double.
 With authentication active, verify 401 without a credential or with an invalid
 credential. Rotate the token and verify the old value returns 401 and the copied
 new value works. Edit and save a token, then verify that clearing the field while
@@ -519,15 +522,21 @@ and supported Wayland compositors.
 ### macOS MCP validation — 2026-11-28
 
 On Apple Silicon macOS 26.7.3, the native exploration executable passed the
-regular SQLite restart smoke and the MCP workflow above. Codex CLI
-0.171.0-alpha.13.2 discovered the endpoint and reported a completed
-`mcp_tool_call` with server `ankerzug`, tool `echo`, and the exact input and
-output `Grüße aus Codex`. Separate HTTP checks covered missing and invalid
-credentials, rejection of browser origins, and parallel requests including a
-9 KiB echo. The listener was observed on IPv4 loopback only. The isolated run
+regular SQLite restart smoke. An isolated transport run covered missing and
+invalid credentials, rejection of browser origins, and parallel requests.
+The listener was observed on IPv4 loopback only. The isolated run
 verified bind failure and retry, access mode enforcement, token rotation and
 editing, clipboard copy, the unauthenticated warning, persistence after restart
 and socket closure on disable and quit. The CLI evidence and screenshot were
 retained in the isolated exploration run directory. The locked macOS debug
 build also produced an Apple Silicon `Ankerzug.app` with the exploration
 feature disabled. Interactive acceptance on Windows and Linux remains pending.
+
+For the version-tool revision, native `tools/list` returned only
+`get_version`, and parallel parameterless calls returned the version shown
+in **Info** in both access modes. Codex CLI 0.171.0-alpha.13.2 completed a
+`get_version` call with empty arguments and structured content
+`{"version":"0.2.2"}`. The isolated test build used loopback port 39228 to
+avoid the running installation. Direct HTTP checks used bearer authentication.
+The CLI call succeeded with authentication disabled on the isolated build
+after the CLI's authenticated startup attempts returned 401.
