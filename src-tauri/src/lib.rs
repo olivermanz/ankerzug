@@ -4,6 +4,7 @@ mod exploration;
 mod games;
 mod help;
 mod legacy;
+mod mcp;
 mod models;
 mod pdf_export;
 mod plan_exchange;
@@ -198,6 +199,7 @@ pub fn run() {
         ));
     builder
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_clipboard_manager::init())
         .manage(pdf_export::PdfViewers::default())
         .manage(Mutex::new(RestoreSession::default()))
         .setup(|app| {
@@ -208,13 +210,24 @@ pub fn run() {
             std::fs::create_dir_all(&directory)?;
             let store = Store::open(&directory.join("ankerzug.sqlite3"))
                 .map_err(|e| std::io::Error::other(e.message))?;
+            app.manage(mcp::Mcp::load(directory.join("mcp-settings.json")));
             app.manage(Backend {
                 store: Mutex::new(store),
             });
             Ok(())
         })
+        .on_window_event(|window, event| {
+            if window.label() == "main" && matches!(event, tauri::WindowEvent::Destroyed) {
+                window.state::<mcp::Mcp>().detach_webview();
+            }
+        })
         .invoke_handler(tauri::generate_handler![
             help::open_help,
+            mcp::mcp_attach,
+            mcp::mcp_save,
+            mcp::mcp_rotate,
+            mcp::mcp_copy,
+            mcp::mcp_reply,
             games::read_game_package,
             games::pick_game_pdfs,
             load_workspace,
@@ -238,6 +251,11 @@ pub fn run() {
             plan_exchange::read_template_package,
             plan_exchange::export_plan_file
         ])
-        .run(tauri::generate_context!())
-        .expect("Ankerzug konnte nicht gestartet werden");
+        .build(tauri::generate_context!())
+        .expect("Ankerzug konnte nicht gestartet werden")
+        .run(|app, event| {
+            if matches!(event, tauri::RunEvent::Exit) {
+                tauri::async_runtime::block_on(app.state::<mcp::Mcp>().stop());
+            }
+        });
 }

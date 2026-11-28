@@ -5,6 +5,8 @@ import { GamesComponent } from './games/games.component';
 import { TemplatesComponent } from './templates/templates.component';
 import { ExportsComponent } from './exports/exports.component';
 import { InfoComponent } from './info/info.component';
+import { McpSettingsComponent } from './mcp/mcp-settings.component';
+import { McpService } from './mcp/mcp.service';
 import {
   Component,
   HostListener,
@@ -80,6 +82,7 @@ import {
     PlanningViewsComponent,
     ExportsComponent,
     InfoComponent,
+    McpSettingsComponent,
   ],
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './app.component.html',
@@ -94,6 +97,8 @@ export class AppComponent implements OnInit {
   }
   readonly gameForms = gameForms;
   readonly planner = inject(PlannerService);
+  private readonly mcp = inject(McpService);
+  readonly settingsSection = signal<'planning' | 'mcp'>('planning');
   readonly appVersion = signal('In der Browser-Vorschau nicht verfügbar');
   readonly exportingPdf = signal(false);
   readonly creatingBackup = signal(false);
@@ -361,6 +366,7 @@ export class AppComponent implements OnInit {
   ];
   ngOnInit(): void {
     void this.planner.load();
+    void this.mcp.attach();
     void this.protectNativeClose();
     void this.loadNativeVersion();
   }

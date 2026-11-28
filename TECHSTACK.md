@@ -241,3 +241,21 @@ byte structure, IDs and references; Angular performs full PDF usability checks.
   enabled. It reads and writes ZIP files on Windows, macOS and Linux without
   external tools. Use `tempfile` (MIT/Apache-2.0) for private restore staging and
   atomic replacement of completed backups on all three desktop platforms.
+
+## Local MCP proof of concept (Issue 27)
+
+- Use the official Apache-2.0-licensed `@modelcontextprotocol/server` TypeScript SDK
+  with its web-standard transport and Zod tool schemas. Bundle it into the
+  Angular assets for WebView2, WKWebView and WebKitGTK. Do not use the Node or
+  stdio adapters. The SDK implements protocol negotiation and message validation.
+- Make the existing locked Hyper, hyper-util, http-body-util and Tokio crates
+  explicit dependencies for HTTP/1 parsing, bounded request bodies, connection
+  lifetimes and correlated IPC. Their portable runtime uses no extra service,
+  native library, protocol handler or TLS certificate.
+- Use the already locked getrandom crate for operating-system randomness and
+  constant_time_eq for bearer-token comparison and tempfile for atomic
+  replacement of the private local settings file. These crates use the
+  existing locked cross-platform versions.
+- Use the official Tauri Clipboard Manager 2 plugin for copying tokens with
+  a main-window-only native command. It provides platform clipboard
+  support independently of webview origin and browser clipboard permission.

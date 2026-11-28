@@ -74,10 +74,12 @@ function javascriptComponents() {
   return [...components.values()];
 }
 
-function lockedCargoVersion(name) {
-  const block = cargoLock
-    .split('[[package]]')
-    .find((candidate) => new RegExp(`^\\s*name = "${name}"`, 'm').test(candidate));
+function lockedCargoVersion(name, exactVersion) {
+  const block = cargoLock.split('[[package]]').find((candidate) => {
+    const [, lockedName, version] =
+      candidate.match(/\nname = "([^"]+)"\nversion = "([^"]+)"/) ?? [];
+    return lockedName === name && (!exactVersion || version === exactVersion);
+  });
   const match = block?.match(/\nversion = "([^"]+)"/);
   if (!match) throw new Error(`${name}: missing from Cargo.lock`);
   return match[1];
@@ -100,9 +102,8 @@ function rustComponents() {
   // Optional exploration tooling is absent from production builds.
   return [...dependencies.matchAll(/^([\w-]+)\s*=([^\n]*)/gm)]
     .filter((match) => !/optional\s*=\s*true/.test(match[2]))
-    .map((match) => match[1])
-    .map((name) => {
-      const version = lockedCargoVersion(name);
+    .map(([, name, specification]) => {
+      const version = lockedCargoVersion(name, specification.match(/"=([^"]+)"/)?.[1]);
       const directory = cachedCrate(name, version);
       const manifest = readFileSync(join(directory, 'Cargo.toml'), 'utf8');
       const license = manifest.match(/^license\s*=\s*"([^"]+)"/m)?.[1];

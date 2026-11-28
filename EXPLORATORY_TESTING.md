@@ -469,3 +469,74 @@ and check the references, headings, page order, rotation and margins. Cancel
 replacement and try an oversized file and a multi-page file with a non-A4 page.
 Verify the previous preview survives. Restart after autosave and check the marker,
 then export/import a template or cycle and inspect the PDF in the imported copy.
+
+## Local MCP acceptance (Issue 27)
+
+Build the native exploration executable and start an isolated run as described
+above. In **Einstellungen → MCP**, check the disabled state, **Lesen** and the
+enabled authentication default. Enable MCP and save. Check the displayed
+`http://localhost:39227/mcp` endpoint and that a token is generated. Confirm
+with the OS socket listing that the application listens on `127.0.0.1:39227`.
+If the port is already in use, check the bind error and retry after it is free.
+
+Use a logged-in Codex CLI for the client smoke test. Copy the test token from the
+isolated app and place it in a temporary process environment variable named
+`ANKERZUG_MCP_TOKEN`. Keep its value out of command arguments, screenshots and
+logs. From a temporary working directory without project instructions, run:
+
+```sh
+codex exec --ephemeral --ignore-user-config --skip-git-repo-check --sandbox read-only --json \
+  -c 'mcp_servers.ankerzug.url="http://localhost:39227/mcp"' \
+  -c 'mcp_servers.ankerzug.bearer_token_env_var="ANKERZUG_MCP_TOKEN"' \
+  -c 'mcp_servers.ankerzug.required=true' \
+  'Confirm the discovered Ankerzug MCP tool and call get_version without arguments. Report its structured result.'
+```
+
+Verify that `tools/list` returns exactly `get_version` with an empty input
+schema. The trace should contain a successful `mcp_tool_call` for
+`get_version` with no arguments and structured content containing just
+`version`. Compare it with the running application's version in **Info**.
+Confirm that the tool works in both **Lesen** and **Lesen und Schreiben**.
+Run concurrent calls with distinct JSON-RPC IDs and verify both replies.
+Write denial is checked with an internal test double.
+With authentication active, verify 401 without a credential or with an invalid
+credential. Rotate the token and verify the old value returns 401 and the copied
+new value works. Edit and save a token, then verify that clearing the field while
+authentication is active produces a validation error. Turn off authentication,
+verify **Ihr MCP Endpunkt ist ungeschützt** appears in red, and repeat the
+smoke with the Codex bearer-token option omitted. Verify a request carrying an
+Origin header still returns 403.
+
+Restart through the exploration CLI and verify the enabled state, endpoint, mode,
+authentication and token survive. Disable MCP and confirm that the port stops
+accepting connections. Re-enable, quit the app and confirm the port closes.
+Run the ordinary exploration restart smoke as well. Use an isolated test token
+and release it from the shell environment when finished.
+
+The production build embeds the SDK and uses each platform's system webview and
+clipboard. Check the locked CI packaging matrix and repeat the native smoke on
+installed Windows, macOS and Linux builds for release acceptance. On Linux,
+include the clipboard session types targeted by the distribution, including X11
+and supported Wayland compositors.
+
+### macOS MCP validation — 2026-11-28
+
+On Apple Silicon macOS 26.7.3, the native exploration executable passed the
+regular SQLite restart smoke. An isolated transport run covered missing and
+invalid credentials, rejection of browser origins, and parallel requests.
+The listener was observed on IPv4 loopback only. The isolated run
+verified bind failure and retry, access mode enforcement, token rotation and
+editing, clipboard copy, the unauthenticated warning, persistence after restart
+and socket closure on disable and quit. The CLI evidence and screenshot were
+retained in the isolated exploration run directory. The locked macOS debug
+build also produced an Apple Silicon `Ankerzug.app` with the exploration
+feature disabled. Interactive acceptance on Windows and Linux remains pending.
+
+For the version-tool revision, native `tools/list` returned only
+`get_version`, and parallel parameterless calls returned the version shown
+in **Info** in both access modes. Codex CLI 0.171.0-alpha.13.2 completed a
+`get_version` call with empty arguments and structured content
+`{"version":"0.2.2"}`. The isolated test build used loopback port 39228 to
+avoid the running installation. Direct HTTP checks used bearer authentication.
+The CLI call succeeded with authentication disabled on the isolated build
+after the CLI's authenticated startup attempts returned 401.
